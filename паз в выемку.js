@@ -1,144 +1,120 @@
-﻿function CutsToNotchs(panel) {
-    if (!panel) return;
+﻿(function() {
+    // 1. Проверка выделения
+    if (!Model.Selected || Model.Selected.Count === 0) {
+        MessageBox.Show("Ошибка: Выберите панель с разрезами!");
+        return;
+    }
 
-    var panelMinY = 0;
-    var panelMaxY = +panel.GSize.z.toFixed(2);
-    var extensionLength = 6; // Вынос за границу панели в мм
+    var panel = Model.Selected[0];
 
-    for (var i = panel.Cuts.Count - 1; i > -1; --i) {
-        if (panel.Cuts[i].CutType != 2) {
-            var traj1_1 = NewContour();
-            var traj1_2 = NewContour();
-            var traj2_1 = NewContour();
-            var traj2_2 = NewContour();
-            var traj_pos1 = undefined;
-            var traj_pos2 = undefined;
-            
-            traj1_1.AddEquidistant(panel.Cuts[i].Trajectory, panel.Cuts[i].Contour.Min.x, false, false);
-            traj1_2.AddEquidistant(panel.Cuts[i].Trajectory, panel.Cuts[i].Contour.Max.x, false, false);
-            traj2_1.AddEquidistant(panel.Cuts[i].Trajectory, panel.Cuts[i].Contour.Min.x, false, false);
-            traj2_2.AddEquidistant(panel.Cuts[i].Trajectory, panel.Cuts[i].Contour.Max.x, false, false);
+    // 2. Проверка типа объекта
+    if (panel.Type != ObjectType.otPanel) {
+        MessageBox.Show("Ошибка: Выбранный объект не является панелью!");
+        return;
+    }
 
-            var cutMinY = +panel.Cuts[i].Contour.Min.y.toFixed(2);
-            var cutMaxY = +panel.Cuts[i].Contour.Max.y.toFixed(2);
-            var isEdgeBottom = (cutMinY <= panelMinY);
-            var isEdgeTop = (cutMaxY >= panelMaxY);
+    // 3. Получение размеров панели
+    // В Базис-Мебельщик локальные координаты развертки обычно:
+    // Length -> ось Z (длина)
+    // Width  -> ось Y (ширина)
+    // Thickness -> ось X (толщина)
+    var pLength = panel.Length;
+    var pWidth = panel.Width;
 
-            // Расчет толщины и вынос за границу при необходимости
-            if (isEdgeBottom && !isEdgeTop) {
-                panel.Cuts[i].Thickness = panel.Cuts[i].Contour.Max.y;
-                // Вынос за нижнюю границу: сдвигаем контур на -6мм по Y
-                var shiftY = -extensionLength;
-                for (var t = 0; t < traj1_1.Count; ++t) {
-                    if (traj1_1.Objects[t] == '[object T2DLine]') {
-                        traj1_1.Objects[t].Pos1.y += shiftY;
-                        traj1_1.Objects[t].Pos2.y += shiftY;
-                        traj1_2.Objects[t].Pos1.y += shiftY;
-                        traj1_2.Objects[t].Pos2.y += shiftY;
-                    }
-                    if (traj1_1.Objects[t] == '[object T2DArc]') {
-                        traj1_1.Objects[t].Pos1.y += shiftY;
-                        traj1_1.Objects[t].Pos2.y += shiftY;
-                        traj1_2.Objects[t].Pos1.y += shiftY;
-                        traj1_2.Objects[t].Pos2.y += shiftY;
-                        // Центр дуги тоже нужно сдвинуть
-                        var center = traj1_1.Objects[t].ArcCenter();
-                        // В API бисера нет прямого setter для центра, перестроим через AddArc3 со смещенными точками
-                    }
-                }
-            } else if (!isEdgeBottom && isEdgeTop) {
-                panel.Cuts[i].Thickness = -(panel.GSize.z - panel.Cuts[i].Contour.Min.y);
-                // Вынос за верхнюю границу: сдвигаем контур на +6мм по Y
-                var shiftY = extensionLength;
-                for (var t = 0; t < traj1_1.Count; ++t) {
-                    if (traj1_1.Objects[t] == '[object T2DLine]') {
-                        traj1_1.Objects[t].Pos1.y += shiftY;
-                        traj1_1.Objects[t].Pos2.y += shiftY;
-                        traj1_2.Objects[t].Pos1.y += shiftY;
-                        traj1_2.Objects[t].Pos2.y += shiftY;
-                    }
-                    if (traj1_1.Objects[t] == '[object T2DArc]') {
-                        traj1_1.Objects[t].Pos1.y += shiftY;
-                        traj1_1.Objects[t].Pos2.y += shiftY;
-                        traj1_2.Objects[t].Pos1.y += shiftY;
-                        traj1_2.Objects[t].Pos2.y += shiftY;
-                    }
-                }
-            } else {
-                panel.Cuts[i].Thickness = 0;
-            }
+    var extendDist = 6.0;   // Вынос за границу
+    var tolerance = 0.5;    // Допуск для определения касания края
+    var needsRebuild = false;
 
-            panel.Cuts[i].Contour.Clear();
+    // 4. Проход по разрезам в обратном порядке (чтобы индексы не сбились при удалении)
+    for (var i = panel.Cuts.Count - 1; i >= 0; i--) {
+        var cut = panel.Cuts[i];
 
-            // Построение нового контура
-            for (var t = 0; t < traj1_1.Count; ++t) {
-                var obj = traj1_1.Objects[t];
-                
-                if (obj === '[object T2DLine]') {
-                    panel.Cuts[i].Contour.AddLine(traj1_1.Objects[t].Pos1, traj1_1.Objects[t].Pos2);
-                    panel.Cuts[i].Contour.AddLine(traj1_2.Objects[t].Pos1, traj1_2.Objects[t].Pos2);
-                    
-                    if (!traj_pos1) {
-                        traj_pos1 = {
-                            p1: traj1_1.Objects[t].Pos1,
-                            p2: traj1_2.Objects[t].Pos1
-                        };
-                    }
-                    traj_pos2 = {
-                        p1: traj1_1.Objects[t].Pos2,
-                        p2: traj1_2.Objects[t].Pos2
-                    };
-                }
-                
-                if (obj === '[object T2DArc]') {
-                    panel.Cuts[i].Contour.AddArc3(traj1_1.Objects[t].Pos1, traj1_1.Objects[t].ArcCenter(), traj1_1.Objects[t].Pos2);
-                    panel.Cuts[i].Contour.AddArc3(traj1_2.Objects[t].Pos1, traj1_2.Objects[t].ArcCenter(), traj1_2.Objects[t].Pos2);
-                    
-                    if (!traj_pos1) {
-                        traj_pos1 = {
-                            p1: traj1_1.Objects[t].Pos1,
-                            p2: traj1_2.Objects[t].Pos1
-                        };
-                    }
-                    traj_pos2 = {
-                        p1: traj1_1.Objects[t].Pos2,
-                        p2: traj1_2.Objects[t].Pos2
-                    };
-                }
-                
-                if (obj === '[object T2DCircle]') {
-                    panel.Cuts[i].Contour.AddCircle(traj2_1.Objects[t].Center.x, traj2_1.Objects[t].Center.y, traj2_1.Objects[t].CirRadius);
-                    panel.Cuts[i].Contour.AddCircle(traj2_2.Objects[t].Center.x, traj2_2.Objects[t].Center.y, traj2_2.Objects[t].CirRadius);
-                }
-            }
-            if ((traj_pos1) && (traj_pos2)) {
-                panel.Cuts[i].Contour.AddLine(traj_pos1.p1.x, traj_pos1.p1.y, traj_pos1.p2.x, traj_pos1.p2.y);
-                panel.Cuts[i].Contour.AddLine(traj_pos2.p1.x, traj_pos2.p1.y, traj_pos2.p2.x, traj_pos2.p2.y);
-            }
+        // Обрабатываем только пазы (Тип 2)
+        if (cut.Type != 2) continue;
 
-            // Обновление параметров выемки
-            panel.Cuts[i].CutType = 2;
-            panel.Cuts[i].Trajectory.Clear();
-            panel.Cuts[i].Name = 'выемка';
-            panel.Cuts[i].Sign = 'выемка';
-            panel.Cuts[i].DeleteParams();
-            
-            // Флаг необходимости перестроения панели
-            needsRebuild = true;
+        // Проверка на наличие точек
+        if (cut.Points.Count < 2) continue;
+
+        // Получаем глубину паза
+        var depth = cut.Thickness;
+
+        // Получаем начальную и конечную точки траектории
+        // Мы игнорируем промежуточные точки и дуги, строя прямоугольную выемку по габаритам траектории
+        var startPt = cut.Points[0];
+        var endPt = cut.Points[cut.Points.Count - 1];
+
+        var startY = startPt.Y;
+        var startZ = startPt.Z;
+        var endY = endPt.Y;
+        var endZ = endPt.Z;
+
+        // --- Логика выноса за границы ---
+
+        // Проверка по оси Z (Длина)
+        if (Math.abs(startZ) < tolerance) {
+            startZ = -extendDist;
+        } else if (Math.abs(startZ - pLength) < tolerance) {
+            startZ = pLength + extendDist;
         }
+
+        if (Math.abs(endZ) < tolerance) {
+            endZ = -extendDist;
+        } else if (Math.abs(endZ - pLength) < tolerance) {
+            endZ = pLength + extendDist;
+        }
+
+        // Проверка по оси Y (Ширина)
+        if (Math.abs(startY) < tolerance) {
+            startY = -extendDist;
+        } else if (Math.abs(startY - pWidth) < tolerance) {
+            startY = pWidth + extendDist;
+        }
+
+        if (Math.abs(endY) < tolerance) {
+            endY = -extendDist;
+        } else if (Math.abs(endY - pWidth) < tolerance) {
+            endY = pWidth + extendDist;
+        }
+
+        // Удаляем старый паз
+        panel.Cuts.RemoveAt(i);
+
+        // 5. Создание новой выемки (Тип 3)
+        var contour = panel.Modeler.NewContour();
+
+        // Строим замкнутый прямоугольный контур
+        // Порядок точек важен для корректной нормали и булевой операции
+        // Точки задаются в формате (Y, Z, X_глубина) относительно плоскости панели
+        
+        // Точка 1: Начало, поверхность (0)
+        contour.AddLine(startY, startZ, 0);
+        
+        // Точка 2: Конец, поверхность (0)
+        contour.AddLine(endY, endZ, 0);
+        
+        // Точка 3: Конец, полная глубина
+        contour.AddLine(endY, endZ, depth);
+        
+        // Точка 4: Начало, полная глубина
+        contour.AddLine(startY, startZ, depth);
+        
+        // Точка 5: Замыкание (Начало, поверхность)
+        contour.AddLine(startY, startZ, 0);
+
+        var newCut = panel.Cuts.Add();
+        newCut.Type = 3; // Тип: Вырез (выемка)
+        newCut.Contour.Assign(contour);
+        newCut.Thickness = depth; // Сохраняем исходную глубину
+        
+        needsRebuild = true;
     }
 
-    // Перестроение панели один раз после всех изменений
-    if (needsRebuild && panel.Build) {
+    // 6. Перестройка геометрии только если были изменения
+    if (needsRebuild) {
         panel.Build();
+        Model.Refresh();
+        MessageBox.Show("Преобразование завершено успешно!");
+    } else {
+        MessageBox.Show("Подходящие разрезы (пазы) не найдены.");
     }
-}
-
-//***************************************************************************//
-
-if (Model && Model.Selected) {
-    CutsToNotchs(Model.Selected);
-    alert('ok');
-} else {
-    alert('Ошибка: панель не выбрана');
-}
+})();
