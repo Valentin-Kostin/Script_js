@@ -117,6 +117,7 @@ function CutsToNotchs(panel) {
     
     // Проверка выемок на касание краев панели и добавление вылета за пределы
     // Если выемка касается края панели с точностью 0.1, расширяем её на 6 мм ЗА край панели
+    // Логика: если выемка касается одного, двух или трех краев, она расширяется в сторону каждого касающегося края
     for (var i = panel.Cuts.Count - 1; i > -1; --i) {
         if (panel.Cuts[i].CutType == 2) { // Проверяем только выемки
             var cut = panel.Cuts[i];
@@ -154,9 +155,10 @@ function CutsToNotchs(panel) {
                 extendTop = true;
             }
             
-            // Если выемка касается любого края, расширяем её только в сторону касания
+            // Если выемка касается любого края (одного, двух или трех), расширяем её в сторону касающихся краев
             if (extendLeft || extendRight || extendBottom || extendTop) {
                 var newContour = NewContour();
+                // Расширяем контур только в стороны касающихся краев
                 var extendedMinX = extendLeft ? minX - extendLength : minX;
                 var extendedMaxX = extendRight ? maxX + extendLength : maxX;
                 var extendedMinY = extendBottom ? minY - extendLength : minY;
