@@ -10,148 +10,111 @@
  *   * Отрицательное значение: выемка строится по направлению -Z от максимальной глубины
  * - CutType должен быть установлен в panelOperations.cutType.extrusion
  */
-function CutsToNotchs(panel) {
-    // Проверяем, что панель выбрана
-    if (!panel || !panel.Cuts) {
-        alert('Ошибка: выберите панель с пазами');
-        return;
-    }
-    
-    // Обрабатываем все пазы панели (в обратном порядке для безопасного удаления)
-    for (var i = panel.Cuts.Count - 1; i >= 0; --i) {
-        var cut = panel.Cuts[i];
-        
-        // Получаем исходные данные паза
-        var trajectory = cut.Trajectory;  // Contour2D - траектория паза
-        var profile = cut.Contour;        // Contour2D - профиль/сечение паза
-        
-        // Пропускаем, если нет траектории или профиля
-        if (!trajectory || !profile) {
-            continue;
-        }
-        
-        // Определяем толщину выемки из профиля (ширина сечения)
-        var cutThickness = 0;
-        if (profile.Count > 0) {
-            // Получаем габариты профиля для определения толщины
-            var minPoint = {x: 0, y: 0};
-            var maxPoint = {x: 0, y: 0};
-            profile.Gabarits(minPoint, maxPoint);
-            cutThickness = Math.abs(maxPoint.y - minPoint.y);
-        }
-        
-        // Если толщина не определена, используем значение из параметров
-        if (cutThickness <= 0 && cut.Params) {
-            cutThickness = Math.abs(cut.Params.Width || cut.Params.Depth || 10);
-        }
-        
-        // Сохраняем текущие точки траектории для построения контура
-        var contourPoints = [];
-        var refObj = { value: { x: 0, y: 0 } };
-        
-        // Проходим по всем элементам траектории и собираем точки
-        for (var t = 0; t < trajectory.Count; ++t) {
-            var elem = trajectory.Objects[t];
-            
-            if (elem && elem.IsLine && elem.IsLine()) {
-                var line = elem;
-                // Добавляем начальную точку линии
-                if (t === 0 || contourPoints.length === 0) {
-                    var startPt = { x: 0, y: 0 };
-                    elem.PointOn(0, startPt);
-                    contourPoints.push({ x: startPt.x, y: startPt.y, type: 'line_start' });
-                }
-                // Добавляем конечную точку линии
-                var endPt = { x: 0, y: 0 };
-                elem.PointOn(1, endPt);
-                contourPoints.push({ x: endPt.x, y: endPt.y, type: 'line_end' });
-            }
-            else if (elem && elem.IsArc && elem.IsArc()) {
-                var arc = elem;
-                // Для дуг добавляем ключевые точки
-                if (t === 0 || contourPoints.length === 0) {
-                    var startPt = { x: 0, y: 0 };
-                    elem.PointOn(0, startPt);
-                    contourPoints.push({ x: startPt.x, y: startPt.y, type: 'arc_start' });
-                }
-                // Средняя точка дуги
-                var midPt = { x: 0, y: 0 };
-                elem.PointOn(0.5, midPt);
-                contourPoints.push({ x: midPt.x, y: midPt.y, type: 'arc_mid' });
-                // Конечная точка дуги
-                var endPt = { x: 0, y: 0 };
-                elem.PointOn(1, endPt);
-                contourPoints.push({ x: endPt.x, y: endPt.y, type: 'arc_end' });
-            }
-        }
-        
-        // Очищаем старый контур
-        cut.Contour.Clear();
-        
-        // Строим замкнутый контур выемки на основе точек траектории
-        // Создаём прямоугольную выемку по bounding box траектории
-        if (contourPoints.length > 0) {
-            // Находим минимальные и максимальные координаты
-            var minX = contourPoints[0].x;
-            var maxX = contourPoints[0].x;
-            var minY = contourPoints[0].y;
-            var maxY = contourPoints[0].y;
-            
-            for (var p = 1; p < contourPoints.length; ++p) {
-                if (contourPoints[p].x < minX) minX = contourPoints[p].x;
-                if (contourPoints[p].x > maxX) maxX = contourPoints[p].x;
-                if (contourPoints[p].y < minY) minY = contourPoints[p].y;
-                if (contourPoints[p].y > maxY) maxY = contourPoints[p].y;
-            }
-            
-            // Добавляем небольшой отступ для корректности
-            var offset = 0.5;
-            minX -= offset;
-            maxX += offset;
-            minY -= offset;
-            maxY += offset;
-            
-            // Создаём замкнутый прямоугольный контур
-            cut.Contour.AddRectangle(minX, minY, maxX, maxY);
-        }
-        
-        // Устанавливаем тип паза как "выемка" (extrusion)
-        // Согласно документации: panelOperations.cutType.extrusion
-        if (typeof panelOperations !== 'undefined' && panelOperations.cutType) {
-            cut.CutType = panelOperations.cutType.extrusion;
-        }
-        
-        // Устанавливаем толщину выемки (глубину)
-        // Знак определяет сторону: положительный - от мин.глубины, отрицательный - от макс.
-        cut.Thickness = -Math.abs(cutThickness);
-        
-        // Обновляем имя и обозначение
-        cut.Name = 'Выемка (из паза)';
-        cut.Sign = 'Выемка';
-        
-        // Очищаем траекторию - для выемки она не используется
-        if (cut.Trajectory) {
-            cut.Trajectory.Clear();
-        }
-        
-        // Создаём параметры паза заново для типа extrusion
-        if (cut.CreateParams) {
-            cut.CreateParams();
-        }
-    }
-    
-    // Перестраиваем панель для применения изменений
-    panel.Build();
-}
 
-//***************************************************************************//
-// Основная программа
-//***************************************************************************//
-
-// Проверяем наличие выбранной панели
-if (Model.Selected && Model.Selected.Cuts && Model.Selected.Cuts.Count > 0) {
-    CutsToNotchs(Model.Selected);
-    alert('Пазы успешно преобразованы в выемки!');
+// Проверка выделения
+if (!Model.Selected || Model.Selected.Count === 0) {
+    alert('Ошибка: Выберите панель с разрезами!');
 } else {
-    alert('Ошибка: Выберите панель с пазами для преобразования');
+    var panel = Model.Selected[0];
+
+    // Проверка типа объекта
+    if (panel.Type != ObjectType.otPanel) {
+        alert('Ошибка: Выбранный объект не является панелью!');
+    } else {
+        // Получение размеров панели (Локальные координаты: X - толщина, Y - ширина, Z - длина)
+        var pLength = panel.Length;   // Ось Z
+        var pWidth = panel.Width;     // Ось Y
+        
+        var extendDist = 6.0;         // Вынос за границу (мм)
+        var tolerance = 0.5;          // Допуск для определения касания края (мм)
+
+        // Проход по разрезам в обратном порядке (чтобы индексы не сбились при удалении)
+        for (var i = panel.Cuts.Count - 1; i >= 0; i--) {
+            var cut = panel.Cuts[i];
+
+            // Обрабатываем только пазы (Тип 2 - Slot / Протяженный вырез)
+            if (cut.Type != 2) continue;
+
+            // Проверка на наличие траектории и точек
+            if (!cut.Trajectory || cut.Trajectory.Count < 2) continue;
+
+            // Получаем глубину паза (абсолютное значение, знак важен для стороны)
+            var depth = cut.Thickness;
+            if (Math.abs(depth) < 0.1) continue; // Игнорируем нулевую глубину
+
+            // --- Анализ траектории для определения габаритов ---
+            var minY = Infinity, maxY = -Infinity;
+            var minZ = Infinity, maxZ = -Infinity;
+
+            // Проходим по всем точкам траектории паза
+            for (var j = 0; j < cut.Trajectory.Count; j++) {
+                var pt = cut.Trajectory[j];
+                if (pt.Y < minY) minY = pt.Y;
+                if (pt.Y > maxY) maxY = pt.Y;
+                if (pt.Z < minZ) minZ = pt.Z;
+                if (pt.Z > maxZ) maxZ = pt.Z;
+            }
+
+            // --- Логика выноса за границы ---
+            // Если граница паза совпадает с границей панели (с учетом допуска),
+            // выносим контур выемки за габарит панели для корректного булевого вычитания
+            
+            // Проверка по оси Z (Длина)
+            if (Math.abs(minZ) < tolerance) {
+                minZ = -extendDist;
+            } else if (Math.abs(minZ - pLength) < tolerance) {
+                minZ = pLength + extendDist;
+            }
+
+            if (Math.abs(maxZ) < tolerance) {
+                maxZ = -extendDist;
+            } else if (Math.abs(maxZ - pLength) < tolerance) {
+                maxZ = pLength + extendDist;
+            }
+
+            // Проверка по оси Y (Ширина)
+            if (Math.abs(minY) < tolerance) {
+                minY = -extendDist;
+            } else if (Math.abs(minY - pWidth) < tolerance) {
+                minY = pWidth + extendDist;
+            }
+
+            if (Math.abs(maxY) < tolerance) {
+                maxY = -extendDist;
+            } else if (Math.abs(maxY - pWidth) < tolerance) {
+                maxY = pWidth + extendDist;
+            }
+
+            // Удаляем старый паз
+            panel.Cuts.RemoveAt(i);
+
+            // --- Создание новой выемки (Тип 3 - Extrusion / Вырез по контуру) ---
+            
+            // Создаем новый пустой контур
+            var contour = panel.Modeler.NewContour();
+            
+            // Формируем замкнутый прямоугольный контур в плоскости панели (Y, Z)
+            contour.AddLine(minY, minZ);
+            contour.AddLine(maxY, minZ);
+            contour.AddLine(maxY, maxZ);
+            contour.AddLine(minY, maxZ);
+            contour.AddLine(minY, minZ); // Замыкаем контур
+
+            // Создаем новый разрез
+            var newCut = panel.Cuts.Add();
+            
+            // Устанавливаем тип: Вырез (выемка)
+            newCut.Type = 3; 
+            
+            // Присваиваем созданный контур
+            newCut.Contour.Assign(contour);
+            
+            // Устанавливаем глубину (сохраняем знак оригинального паза для стороны выреза)
+            newCut.Thickness = depth;
+        }
+
+        // Перестройка геометрии
+        panel.Build();
+        alert('Преобразование завершено успешно!\nПазы конвертированы в выемки.');
+    }
 }
