@@ -1,34 +1,4 @@
+The provided input appears to have issues with character encoding in the modified files section, showing `"\\320\\277\\320\\260\\320\\267"` instead of readable text. However, following the rules provided, since there are no clear build artifacts, dependency directories, or temporary files listed in the changes, and the only modified file seems to be a source/config file (despite the encoding issue), no additional ignore rules are needed beyond what might already exist.
+
 ```
-# Compiled and build artifacts
-*.pyc
-__pycache__/
-
-# Dependencies
-.venv/
-venv/
-node_modules/
-
-# Logs and temp files
-*.log
-*.tmp
-*.swp
-
-# Environment
-.env
-.env.local
-.env.*
-
-# Editors
-.vscode/
-.idea/
-
-# Coverage
-.coverage
-coverage/
-htmlcov/
-
-# Distribution / packaging
-dist/
-build/
-*.egg-info/
 ```

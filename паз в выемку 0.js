@@ -55,24 +55,15 @@ function CutsToNotchs(panel) {
             
             // Определение толщины выемки в зависимости от положения паза относительно габаритов панели
             // Анализируется положение паза относительно panel.GSize.z
-            var isTouchingMin = (+panel.Cuts[i].Contour.Min.y.toFixed(2) <= 0);
-            var isTouchingMax = (+panel.Cuts[i].Contour.Max.y.toFixed(2) >= +panel.GSize.z.toFixed(2));
-            
-            if (isTouchingMin && !isTouchingMax) {
+            if ((+panel.Cuts[i].Contour.Min.y.toFixed(2) <= 0) && (+panel.Cuts[i].Contour.Max.y.toFixed(2) < +panel.GSize.z.toFixed(2))) {
                 // Паз начинается от 0 и не доходит до края: толщина равна Max.y
                 panel.Cuts[i].Thickness = panel.Cuts[i].Contour.Max.y;
-            } else if (!isTouchingMin && isTouchingMax) {
+            } else if ((+panel.Cuts[i].Contour.Min.y.toFixed(2) > 0) && (+panel.Cuts[i].Contour.Max.y.toFixed(2) >= +panel.GSize.z.toFixed(2))) {
                 // Паз начинается не от 0 и доходит до края: толщина отрицательная (дополнение до края)
                 panel.Cuts[i].Thickness = -(panel.GSize.z - panel.Cuts[i].Contour.Min.y);
             } else {
-                // Паз сквозной или касается обоих краев: толщина = 0
+                // Паз сквозной: толщина = 0
                 panel.Cuts[i].Thickness = 0;
-            }
-            
-            // Если паз касается границы панели, добавляем выступ 6 мм за пределы
-            var extension = 0;
-            if (isTouchingMin || isTouchingMax) {
-                extension = 6;
             }
             
             // Очистка старого контура паза перед формированием нового
@@ -105,42 +96,8 @@ function CutsToNotchs(panel) {
             // Замыкание контура выемки
             // Добавление соединительных линий между начальной и конечной точками параллельных траекторий
             if ((traj_pos1) && (traj_pos2)) {
-                var startX1 = traj_pos1.p1.x;
-                var startY1 = traj_pos1.p1.y;
-                var startX2 = traj_pos1.p2.x;
-                var startY2 = traj_pos1.p2.y;
-                var endX1 = traj_pos2.p1.x;
-                var endY1 = traj_pos2.p1.y;
-                var endX2 = traj_pos2.p2.x;
-                var endY2 = traj_pos2.p2.y;
-                
-                // Если паз касается границы, добавляем выступ 6 мм
-                if (extension > 0) {
-                    // Вычисляем направление траектории для удлинения
-                    var dx = endX1 - startX1;
-                    var dy = endY1 - startY1;
-                    var length = Math.sqrt(dx * dx + dy * dy);
-                    
-                    if (length > 0) {
-                        var unitX = dx / length;
-                        var unitY = dy / length;
-                        
-                        // Удлиняем начало в обратном направлении
-                        startX1 -= unitX * extension;
-                        startY1 -= unitY * extension;
-                        startX2 -= unitX * extension;
-                        startY2 -= unitY * extension;
-                        
-                        // Удлиняем конец в прямом направлении
-                        endX1 += unitX * extension;
-                        endY1 += unitY * extension;
-                        endX2 += unitX * extension;
-                        endY2 += unitY * extension;
-                    }
-                }
-                
-                panel.Cuts[i].Contour.AddLine(startX1, startY1, startX2, startY2);
-                panel.Cuts[i].Contour.AddLine(endX1, endY1, endX2, endY2);
+                panel.Cuts[i].Contour.AddLine(traj_pos1.p1.x, traj_pos1.p1.y, traj_pos1.p2.x, traj_pos1.p2.y, );
+                panel.Cuts[i].Contour.AddLine(traj_pos2.p1.x, traj_pos2.p1.y, traj_pos2.p2.x, traj_pos2.p2.y, );
             }
             
             // Финализация выемки
