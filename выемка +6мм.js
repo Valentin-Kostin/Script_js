@@ -75,23 +75,94 @@ function ExtendNotchsBeyondPanel(panel) {
             // расширяем её в сторону касающихся краев
             if (extendLeft || extendRight || extendBottom || extendTop) {
                 var newContour = NewContour();
-                // Расширяем контур только в стороны касающихся краев
-                var extendedMinX = extendLeft ? minX - extendLength : minX;
-                var extendedMaxX = extendRight ? maxX + extendLength : maxX;
-                var extendedMinY = extendBottom ? minY - extendLength : minY;
-                var extendedMaxY = extendTop ? maxY + extendLength : maxY;
                 
-                // Строим новый расширенный контур (прямоугольник)
-                newContour.AddLine(extendedMinX, extendedMinY, extendedMaxX, extendedMinY);
-                newContour.AddLine(extendedMaxX, extendedMinY, extendedMaxX, extendedMaxY);
-                newContour.AddLine(extendedMaxX, extendedMaxY, extendedMinX, extendedMaxY);
-                newContour.AddLine(extendedMinX, extendedMaxY, extendedMinX, extendedMinY);
+                // Проходим по всем объектам исходного контура и расширяем их
+                for (var t = 0; t < cut.Contour.Count; ++t) {
+                    var obj = cut.Contour.Objects[t];
+                    
+                    if (obj == '[object T2DLine]') {
+                        var x1 = obj.Pos1.x;
+                        var y1 = obj.Pos1.y;
+                        var x2 = obj.Pos2.x;
+                        var y2 = obj.Pos2.y;
+                        
+                        // Расширяем конечные точки в зависимости от направления линии и касающихся краев
+                        // Горизонтальная линия
+                        if (Math.abs(y1 - y2) < tolerance) {
+                            // Нижняя граница выемки
+                            if (Math.abs(y1 - minY) < tolerance && extendBottom) {
+                                y1 -= extendLength;
+                                y2 -= extendLength;
+                            }
+                            // Верхняя граница выемки
+                            if (Math.abs(y1 - maxY) < tolerance && extendTop) {
+                                y1 += extendLength;
+                                y2 += extendLength;
+                            }
+                            // Левый край
+                            if (Math.abs(x1 - minX) < tolerance && extendLeft) {
+                                x1 -= extendLength;
+                            }
+                            if (Math.abs(x2 - minX) < tolerance && extendLeft) {
+                                x2 -= extendLength;
+                            }
+                            // Правый край
+                            if (Math.abs(x1 - maxX) < tolerance && extendRight) {
+                                x1 += extendLength;
+                            }
+                            if (Math.abs(x2 - maxX) < tolerance && extendRight) {
+                                x2 += extendLength;
+                            }
+                        }
+                        // Вертикальная линия
+                        else if (Math.abs(x1 - x2) < tolerance) {
+                            // Левая граница выемки
+                            if (Math.abs(x1 - minX) < tolerance && extendLeft) {
+                                x1 -= extendLength;
+                                x2 -= extendLength;
+                            }
+                            // Правая граница выемки
+                            if (Math.abs(x1 - maxX) < tolerance && extendRight) {
+                                x1 += extendLength;
+                                x2 += extendLength;
+                            }
+                            // Нижний край
+                            if (Math.abs(y1 - minY) < tolerance && extendBottom) {
+                                y1 -= extendLength;
+                            }
+                            if (Math.abs(y2 - minY) < tolerance && extendBottom) {
+                                y2 -= extendLength;
+                            }
+                            // Верхний край
+                            if (Math.abs(y1 - maxY) < tolerance && extendTop) {
+                                y1 += extendLength;
+                            }
+                            if (Math.abs(y2 - maxY) < tolerance && extendTop) {
+                                y2 += extendLength;
+                            }
+                        }
+                        // Добавляем измененную линию в новый контур
+                        newContour.AddLine(x1, y1, x2, y2);
+                    }
+                    // Если есть дуги, просто копируем их без изменений (для упрощения)
+                    else if (obj == '[object T2DArc]') {
+                        newContour.AddArc3(obj.Pos1, obj.Pos2, obj.Pos3);
+                    }
+                    // Если есть окружности, просто копируем их без изменений
+                    else if (obj == '[object T2DCircle]') {
+                        newContour.AddCircle(obj.Center, obj.Radius);
+                    }
+                }
                 
                 // Заменяем контур выемки на расширенный
                 cut.Contour.Clear();
                 for (var t = 0; t < newContour.Count; ++t) {
                     if (newContour.Objects[t] == '[object T2DLine]') {
                         cut.Contour.AddLine(newContour.Objects[t].Pos1, newContour.Objects[t].Pos2);
+                    } else if (newContour.Objects[t] == '[object T2DArc]') {
+                        cut.Contour.AddArc3(newContour.Objects[t].Pos1, newContour.Objects[t].Pos2, newContour.Objects[t].Pos3);
+                    } else if (newContour.Objects[t] == '[object T2DCircle]') {
+                        cut.Contour.AddCircle(newContour.Objects[t].Center, newContour.Objects[t].Radius);
                     }
                 }
                 
