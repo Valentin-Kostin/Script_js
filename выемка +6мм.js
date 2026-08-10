@@ -91,12 +91,11 @@ function ExtendNotchsBeyondPanel(panel) {
                         var p2Changed = false;
                         
                         // --- Обработка точки 1 (Pos1) ---
-                        // Проверяем, является ли эта точка частью границы, требующей расширения
-                        // Точка считается принадлежащей левой границе, если её X близок к minX
-                        var isP1OnLeft = (Math.abs(x1 - minX) < tolerance);
-                        var isP1OnRight = (Math.abs(x1 - maxX) < tolerance);
-                        var isP1OnBottom = (Math.abs(y1 - minY) < tolerance);
-                        var isP1OnTop = (Math.abs(y1 - maxY) < tolerance);
+                        // Проверяем касание границ ПАНЕЛИ напрямую, а не границ контура
+                        var isP1OnLeft = (Math.abs(x1 - 0) < tolerance);
+                        var isP1OnRight = (Math.abs(x1 - panelWidth) < tolerance);
+                        var isP1OnBottom = (Math.abs(y1 - 0) < tolerance);
+                        var isP1OnTop = (Math.abs(y1 - panelThickness) < tolerance);
                         
                         if (isP1OnLeft && extendLeft) { x1 -= extendLength; p1Changed = true; }
                         if (isP1OnRight && extendRight) { x1 += extendLength; p1Changed = true; }
@@ -104,10 +103,10 @@ function ExtendNotchsBeyondPanel(panel) {
                         if (isP1OnTop && extendTop) { y1 += extendLength; p1Changed = true; }
                         
                         // --- Обработка точки 2 (Pos2) ---
-                        var isP2OnLeft = (Math.abs(x2 - minX) < tolerance);
-                        var isP2OnRight = (Math.abs(x2 - maxX) < tolerance);
-                        var isP2OnBottom = (Math.abs(y2 - minY) < tolerance);
-                        var isP2OnTop = (Math.abs(y2 - maxY) < tolerance);
+                        var isP2OnLeft = (Math.abs(x2 - 0) < tolerance);
+                        var isP2OnRight = (Math.abs(x2 - panelWidth) < tolerance);
+                        var isP2OnBottom = (Math.abs(y2 - 0) < tolerance);
+                        var isP2OnTop = (Math.abs(y2 - panelThickness) < tolerance);
                         
                         if (isP2OnLeft && extendLeft) { x2 -= extendLength; p2Changed = true; }
                         if (isP2OnRight && extendRight) { x2 += extendLength; p2Changed = true; }
