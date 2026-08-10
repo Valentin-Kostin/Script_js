@@ -2,21 +2,28 @@
 # Compiled and build artifacts
 *.pyc
 __pycache__/
+*.o
+*.obj
+*.class
+*.exe
+*.dll
+*.so
+*.a
+*.out
 
 # Dependencies
-.venv/
-venv/
 node_modules/
+venv/
+.venv/
+.env
+.env.local
+.env.*
 
 # Logs and temp files
 *.log
 *.tmp
 *.swp
-
-# Environment
-.env
-.env.local
-.env.*
+*.swo
 
 # Editors
 .vscode/
@@ -27,22 +34,22 @@ node_modules/
 Thumbs.db
 
 # Coverage
-.coverage
 coverage/
 htmlcov/
+.coverage
+
+# Build directories
+dist/
+build/
+target/
+.gradle/
 
 # Python specific
+.mypy_cache/
+.pytest_cache/
 *.pyc
 *.pyo
 *.pyd
-.Python
-*.so
-*.egg-info/
-dist/
-build/
-*.egg
-*.manifest
-*.spec
 
 # Compressed files
 *.zip
