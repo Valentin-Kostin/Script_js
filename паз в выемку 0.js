@@ -13,8 +13,6 @@
  * - NewContour(): Создание нового контура
  * - AddEquidistant(): Построение эквидистанты (параллельного контура)
  * - AddLine(): Добавление линии в контур
- * - AddArc3(): Добавление дуги по трём точкам
- * - AddCircle(): Добавление окружности
  * - panel.Build(): Перестроение геометрии панели
  * - Model.Selected: Выбранный объект в модели
  * 
@@ -26,7 +24,7 @@
  * Особенности реализации:
  * - Обработка идёт в обратном порядке циклов для корректной работы с индексами при изменении коллекции
  * - Используется точное сравнение координат с округлением до 2 знаков (toFixed(2))
- * - Поддерживает различные типы геометрии: линии, дуги, окружности
+ * - Поддерживает только линейную геометрию (линии)
  */
 
 /**
@@ -73,6 +71,7 @@ function CutsToNotchs(panel) {
             
             // Формирование нового контура выемки
             // Проход по всем объектам траектории и добавление их в новый контур
+            // Обрабатываются только линии (дуги и окружности исключены)
             for (var t = 0; t < traj1_1.Count; ++t) {
                 // Обработка линий (T2DLine)
                 if (traj1_1.Objects[t] == '[object T2DLine]') {
@@ -91,30 +90,6 @@ function CutsToNotchs(panel) {
                         p1: traj1_1.Objects[t].Pos2,
                         p2: traj1_2.Objects[t].Pos2
                     };
-                }
-                // Обработка дуг (T2DArc)
-                if (traj1_1.Objects[t] == '[object T2DArc]') {
-                    // Добавление параллельных дуг с использованием метода AddArc3()
-                    panel.Cuts[i].Contour.AddArc3(traj1_1.Objects[t].Pos1, traj1_1.Objects[t].ArcCenter(), traj1_1.Objects[t].Pos2);
-                    panel.Cuts[i].Contour.AddArc3(traj1_2.Objects[t].Pos1, traj1_2.Objects[t].ArcCenter(), traj1_2.Objects[t].Pos2);
-                    // Сохранение начальной позиции для замыкания контура
-                    if (!traj_pos1) {
-                        traj_pos1 = {
-                            p1: traj1_1.Objects[t].Pos1,
-                            p2: traj1_2.Objects[t].Pos1
-                        };
-                    }
-                    // Сохранение конечной позиции для замыкания контура
-                    traj_pos2 = {
-                        p1: traj1_1.Objects[t].Pos2,
-                        p2: traj1_2.Objects[t].Pos2
-                    };
-                }
-                // Обработка окружностей (T2DCircle)
-                if (traj1_1.Objects[t] == '[object T2DCircle]') {
-                    // Добавление двух окружностей с разными центрами
-                    panel.Cuts[i].Contour.AddCircle(traj2_1.Objects[t].Center.x, traj2_1.Objects[t].Center.y, traj2_1.Objects[t].CirRadius);
-                    panel.Cuts[i].Contour.AddCircle(traj2_2.Objects[t].Center.x, traj2_2.Objects[t].Center.y, traj2_2.Objects[t].CirRadius);
                 }
             }
             
