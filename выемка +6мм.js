@@ -86,65 +86,39 @@ function ExtendNotchsBeyondPanel(panel) {
                         var x2 = obj.Pos2.x;
                         var y2 = obj.Pos2.y;
                         
-                        // Расширяем конечные точки в зависимости от направления линии и касающихся краев
-                        // Горизонтальная линия
-                        if (Math.abs(y1 - y2) < tolerance) {
-                            // Нижняя граница выемки
-                            if (Math.abs(y1 - minY) < tolerance && extendBottom) {
-                                y1 -= extendLength;
-                                y2 -= extendLength;
-                            }
-                            // Верхняя граница выемки
-                            if (Math.abs(y1 - maxY) < tolerance && extendTop) {
-                                y1 += extendLength;
-                                y2 += extendLength;
-                            }
-                            // Левый край
-                            if (Math.abs(x1 - minX) < tolerance && extendLeft) {
-                                x1 -= extendLength;
-                            }
-                            if (Math.abs(x2 - minX) < tolerance && extendLeft) {
-                                x2 -= extendLength;
-                            }
-                            // Правый край
-                            if (Math.abs(x1 - maxX) < tolerance && extendRight) {
-                                x1 += extendLength;
-                            }
-                            if (Math.abs(x2 - maxX) < tolerance && extendRight) {
-                                x2 += extendLength;
-                            }
-                        }
-                        // Вертикальная линия
-                        else if (Math.abs(x1 - x2) < tolerance) {
-                            // Левая граница выемки
-                            if (Math.abs(x1 - minX) < tolerance && extendLeft) {
-                                x1 -= extendLength;
-                                x2 -= extendLength;
-                            }
-                            // Правая граница выемки
-                            if (Math.abs(x1 - maxX) < tolerance && extendRight) {
-                                x1 += extendLength;
-                                x2 += extendLength;
-                            }
-                            // Нижний край
-                            if (Math.abs(y1 - minY) < tolerance && extendBottom) {
-                                y1 -= extendLength;
-                            }
-                            if (Math.abs(y2 - minY) < tolerance && extendBottom) {
-                                y2 -= extendLength;
-                            }
-                            // Верхний край
-                            if (Math.abs(y1 - maxY) < tolerance && extendTop) {
-                                y1 += extendLength;
-                            }
-                            if (Math.abs(y2 - maxY) < tolerance && extendTop) {
-                                y2 += extendLength;
-                            }
-                        }
+                        // Флаг изменения точек
+                        var p1Changed = false;
+                        var p2Changed = false;
+                        
+                        // --- Обработка точки 1 (Pos1) ---
+                        // Проверяем, является ли эта точка частью границы, требующей расширения
+                        // Точка считается принадлежащей левой границе, если её X близок к minX
+                        var isP1OnLeft = (Math.abs(x1 - minX) < tolerance);
+                        var isP1OnRight = (Math.abs(x1 - maxX) < tolerance);
+                        var isP1OnBottom = (Math.abs(y1 - minY) < tolerance);
+                        var isP1OnTop = (Math.abs(y1 - maxY) < tolerance);
+                        
+                        if (isP1OnLeft && extendLeft) { x1 -= extendLength; p1Changed = true; }
+                        if (isP1OnRight && extendRight) { x1 += extendLength; p1Changed = true; }
+                        if (isP1OnBottom && extendBottom) { y1 -= extendLength; p1Changed = true; }
+                        if (isP1OnTop && extendTop) { y1 += extendLength; p1Changed = true; }
+                        
+                        // --- Обработка точки 2 (Pos2) ---
+                        var isP2OnLeft = (Math.abs(x2 - minX) < tolerance);
+                        var isP2OnRight = (Math.abs(x2 - maxX) < tolerance);
+                        var isP2OnBottom = (Math.abs(y2 - minY) < tolerance);
+                        var isP2OnTop = (Math.abs(y2 - maxY) < tolerance);
+                        
+                        if (isP2OnLeft && extendLeft) { x2 -= extendLength; p2Changed = true; }
+                        if (isP2OnRight && extendRight) { x2 += extendLength; p2Changed = true; }
+                        if (isP2OnBottom && extendBottom) { y2 -= extendLength; p2Changed = true; }
+                        if (isP2OnTop && extendTop) { y2 += extendLength; p2Changed = true; }
+                        
                         // Добавляем измененную линию в новый контур
                         newContour.AddLine(x1, y1, x2, y2);
                     }
                     // Если есть дуги, просто копируем их без изменений (для упрощения)
+                    // Примечание: Для точного расширения дуг требуется более сложная математика
                     else if (obj == '[object T2DArc]') {
                         newContour.AddArc3(obj.Pos1, obj.Pos2, obj.Pos3);
                     }
