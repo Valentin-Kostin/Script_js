@@ -1,156 +1,146 @@
 /**
  * Скрипт расширения выемок за пределы панели на 6 мм для БАЗИС-Мебельщик
- * 
+ *
  * Назначение: Если в выделенной панели есть выемка, которая касается края панели
- * (одного, двух, трех или всех четырех краев), то выемка расширяется за пределы 
+ * (одного, двух, трех или всех четырех краев), то выемка расширяется за пределы
  * панели на 6 мм в сторону каждого касающегося края.
- * 
- * Используемые объекты и методы BAZIS-Script:
- * - panel.Cuts: Список пазов/выемок панели
- * - panel.Cuts[i].CutType: Тип паза (2 = выемка)
- * - panel.Cuts[i].Contour: Контур выемки
- * - panel.GSize.x: Габаритный размер панели по оси X (ширина)
- * - panel.GSize.z: Габаритный размер панели по оси Z (толщина)
- * - NewContour(): Создание нового контура
- * - AddLine(): Добавление линии в контур
- * - panel.Build(): Перестроение геометрии панели
- * - Model.Selected: Выбранный объект в модели
- * 
+ *
  * Логика работы:
- * - Проверяет каждую выемку на касание краев панели с точностью 0.1 мм
- * - Если выемка касается левого края (x=0), расширяется влево на 6 мм
- * - Если выемка касается правого края (x=panel.GSize.x), расширяется вправо на 6 мм
- * - Если выемка касается нижнего края (y=0), расширяется вниз на 6 мм
- * - Если выемка касается верхнего края (y=panel.GSize.z), расширяется вверх на 6 мм
- * - Поддерживает касание любого количества краев (1, 2, 3 или 4)
+ * 1. Считаем границы панели и запоминаем координаты углов (0,0) и (GSize.x, GSize.y)
+ * 2. Проверяем каждую выемку в панели
+ * 3. Считываем координаты границ выемки (Min.x, Max.x, Min.y, Max.y)
+ * 4. Если границы выемки пересекаются или касаются границы панели (точность 0.1 мм),
+ *    вытягиваем границу выемки за границу панели на 6 мм
+ * 5. Если выемка касается нескольких сторон, вытягиваем во все касающиеся стороны
  */
 
-/**
- * Основная функция расширения выемок за пределы панели
- * @param {Object} panel - Объект панели, содержащей выемки для обработки
- */
-function ExtendNotchsBeyondPanel(panel) {
-    // Проверка выемок на касание краев панели и добавление вылета за пределы
-    // Если выемка касается края панели с точностью 0.1, расширяем её на 6 мм ЗА край панели
-    // Логика: если выемка касается одного, двух, трех или четырех краев, 
-    // она расширяется в сторону каждого касающегося края
-    for (var i = panel.Cuts.Count - 1; i > -1; --i) {
-        if (panel.Cuts[i].CutType == 2) { // Проверяем только выемки
-            var cut = panel.Cuts[i];
-            var tolerance = 0.1;
-            var extendLength = 6.0;
-            var extendLeft = false;
-            var extendRight = false;
-            var extendBottom = false;
-            var extendTop = false;
+function ExtendNotches(panel) {
+    if (!panel || !panel.Cuts) return;
+
+    // 1. Границы панели
+    var pWidth = panel.GSize.x;   // Правая граница по X
+    var pDepth = panel.GSize.y;   // Верхняя граница по Y
+    
+    var eps = 0.1;        // Точность определения касания (мм)
+    var extendVal = 6.0;  // Величина вылета за край (мм)
+
+    // Проходим по всем пазам в обратном порядке
+    for (var i = panel.Cuts.Count - 1; i >= 0; i--) {
+        var cut = panel.Cuts.Item(i);
+        
+        // Обрабатываем только выемки (тип 2)
+        if (cut.CutType != 2) continue;
+
+        var contour = cut.Contour;
+        if (!contour || contour.Count == 0) continue;
+
+        // 2. Получаем габариты выемки (Min/Max уже есть в объекте Contour)
+        var minX = contour.Min.x;
+        var maxX = contour.Max.x;
+        var minY = contour.Min.y;
+        var maxY = contour.Max.y;
+
+        // 3. Определяем, каких краев касается выемка (с точностью 0.1 мм)
+        var touchLeft   = Math.abs(minX - 0) < eps;
+        var touchRight  = Math.abs(maxX - pWidth) < eps;
+        var touchBottom = Math.abs(minY - 0) < eps;
+        var touchTop    = Math.abs(maxY - pDepth) < eps;
+
+        // Если ни одного края не касается, пропускаем
+        if (!touchLeft && !touchRight && !touchBottom && !touchTop) continue;
+
+        // 4. Создаем новый контур с расширенными границами
+        var newContour = NewContour();
+        
+        for (var k = 0; k < contour.Count; k++) {
+            var obj = contour.Item(k);
             
-            // Получаем габариты контура выемки
-            var minX = +cut.Contour.Min.x.toFixed(2);
-            var maxX = +cut.Contour.Max.x.toFixed(2);
-            var minY = +cut.Contour.Min.y.toFixed(2);
-            var maxY = +cut.Contour.Max.y.toFixed(2);
-            
-            // Габариты панели
-            var panelWidth = +panel.GSize.x.toFixed(2);
-            var panelThickness = +panel.GSize.z.toFixed(2);
-            
-            // Проверяем касание левого края (x = 0)
-            if (Math.abs(minX - 0) < tolerance) {
-                extendLeft = true;
-            }
-            // Проверяем касание правого края (x = panel.GSize.x)
-            if (Math.abs(maxX - panelWidth) < tolerance) {
-                extendRight = true;
-            }
-            // Проверяем касание нижнего края (y = 0)
-            if (Math.abs(minY - 0) < tolerance) {
-                extendBottom = true;
-            }
-            // Проверяем касание верхнего края (y = panel.GSize.z)
-            if (Math.abs(maxY - panelThickness) < tolerance) {
-                extendTop = true;
-            }
-            
-            // Если выемка касается любого края (одного, двух, трех или четырех), 
-            // расширяем её в сторону касающихся краев
-            if (extendLeft || extendRight || extendBottom || extendTop) {
-                var newContour = NewContour();
-                
-                // Проходим по всем объектам исходного контура и расширяем их
-                for (var t = 0; t < cut.Contour.Count; ++t) {
-                    var obj = cut.Contour.Objects[t];
+            if (obj.TypeName == "T2DLine") {
+                var p1 = {x: obj.Pos1.x, y: obj.Pos1.y};
+                var p2 = {x: obj.Pos2.x, y: obj.Pos2.y};
+
+                // Функция сдвига точки в зависимости от того, какого края она касается
+                function shiftPoint(p) {
+                    var np = {x: p.x, y: p.y};
                     
-                    if (obj == '[object T2DLine]') {
-                        var x1 = obj.Pos1.x;
-                        var y1 = obj.Pos1.y;
-                        var x2 = obj.Pos2.x;
-                        var y2 = obj.Pos2.y;
-                        
-                        // Флаг изменения точек
-                        var p1Changed = false;
-                        var p2Changed = false;
-                        
-                        // --- Обработка точки 1 (Pos1) ---
-                        // Проверяем касание границ ПАНЕЛИ напрямую, а не границ контура
-                        var isP1OnLeft = (Math.abs(x1 - 0) < tolerance);
-                        var isP1OnRight = (Math.abs(x1 - panelWidth) < tolerance);
-                        var isP1OnBottom = (Math.abs(y1 - 0) < tolerance);
-                        var isP1OnTop = (Math.abs(y1 - panelThickness) < tolerance);
-                        
-                        if (isP1OnLeft && extendLeft) { x1 -= extendLength; p1Changed = true; }
-                        if (isP1OnRight && extendRight) { x1 += extendLength; p1Changed = true; }
-                        if (isP1OnBottom && extendBottom) { y1 -= extendLength; p1Changed = true; }
-                        if (isP1OnTop && extendTop) { y1 += extendLength; p1Changed = true; }
-                        
-                        // --- Обработка точки 2 (Pos2) ---
-                        var isP2OnLeft = (Math.abs(x2 - 0) < tolerance);
-                        var isP2OnRight = (Math.abs(x2 - panelWidth) < tolerance);
-                        var isP2OnBottom = (Math.abs(y2 - 0) < tolerance);
-                        var isP2OnTop = (Math.abs(y2 - panelThickness) < tolerance);
-                        
-                        if (isP2OnLeft && extendLeft) { x2 -= extendLength; p2Changed = true; }
-                        if (isP2OnRight && extendRight) { x2 += extendLength; p2Changed = true; }
-                        if (isP2OnBottom && extendBottom) { y2 -= extendLength; p2Changed = true; }
-                        if (isP2OnTop && extendTop) { y2 += extendLength; p2Changed = true; }
-                        
-                        // Добавляем измененную линию в новый контур
-                        newContour.AddLine(x1, y1, x2, y2);
+                    // Проверяем каждую координату точки на касание соответствующего края
+                    if (touchLeft && Math.abs(p.x - 0) < eps) {
+                        np.x -= extendVal;  // Сдвигаем влево за край
                     }
-                    // Если есть дуги, просто копируем их без изменений (для упрощения)
-                    // Примечание: Для точного расширения дуг требуется более сложная математика
-                    else if (obj == '[object T2DArc]') {
-                        newContour.AddArc3(obj.Pos1, obj.Pos2, obj.Pos3);
+                    if (touchRight && Math.abs(p.x - pWidth) < eps) {
+                        np.x += extendVal;  // Сдвигаем вправо за край
                     }
-                    // Если есть окружности, просто копируем их без изменений
-                    else if (obj == '[object T2DCircle]') {
-                        newContour.AddCircle(obj.Center, obj.Radius);
+                    if (touchBottom && Math.abs(p.y - 0) < eps) {
+                        np.y -= extendVal;  // Сдвигаем вниз за край
                     }
+                    if (touchTop && Math.abs(p.y - pDepth) < eps) {
+                        np.y += extendVal;  // Сдвигаем вверх за край
+                    }
+                    
+                    return np;
                 }
+
+                var np1 = shiftPoint(p1);
+                var np2 = shiftPoint(p2);
+
+                newContour.AddLine(np1.x, np1.y, np2.x, np2.y);
+            
+            } else if (obj.TypeName == "T2DArc") {
+                // Для дуги определяем её экстремумы и сдвигаем центр
+                var cx = obj.Center.x;
+                var cy = obj.Center.y;
+                var r = obj.Radius;
+                var startAngle = obj.StartAngle;
+                var endAngle = obj.EndAngle;
+
+                var shiftX = 0, shiftY = 0;
                 
-                // Заменяем контур выемки на расширенный
-                cut.Contour.Clear();
-                for (var t = 0; t < newContour.Count; ++t) {
-                    if (newContour.Objects[t] == '[object T2DLine]') {
-                        cut.Contour.AddLine(newContour.Objects[t].Pos1, newContour.Objects[t].Pos2);
-                    } else if (newContour.Objects[t] == '[object T2DArc]') {
-                        cut.Contour.AddArc3(newContour.Objects[t].Pos1, newContour.Objects[t].Pos2, newContour.Objects[t].Pos3);
-                    } else if (newContour.Objects[t] == '[object T2DCircle]') {
-                        cut.Contour.AddCircle(newContour.Objects[t].Center, newContour.Objects[t].Radius);
-                    }
-                }
+                // Проверяем, касается ли дуга краев по своим экстремальным точкам
+                if (touchLeft && Math.abs((cx - r) - 0) < eps) shiftX -= extendVal;
+                if (touchRight && Math.abs((cx + r) - pWidth) < eps) shiftX += extendVal;
+                if (touchBottom && Math.abs((cy - r) - 0) < eps) shiftY -= extendVal;
+                if (touchTop && Math.abs((cy + r) - pDepth) < eps) shiftY += extendVal;
                 
-                // Обновляем траекторию и перестраиваем панель
-                cut.Trajectory.Clear();
-                panel.Build();
+                newContour.AddArc(cx + shiftX, cy + shiftY, r, startAngle, endAngle);
+
+            } else if (obj.TypeName == "T2DCircle") {
+                var cx = obj.Center.x;
+                var cy = obj.Center.y;
+                var r = obj.Radius;
+                
+                var shiftX = 0, shiftY = 0;
+                
+                if (touchLeft && Math.abs((cx - r) - 0) < eps) shiftX -= extendVal;
+                if (touchRight && Math.abs((cx + r) - pWidth) < eps) shiftX += extendVal;
+                if (touchBottom && Math.abs((cy - r) - 0) < eps) shiftY -= extendVal;
+                if (touchTop && Math.abs((cy + r) - pDepth) < eps) shiftY += extendVal;
+                
+                newContour.AddCircle(cx + shiftX, cy + shiftY, r);
+            }
+        }
+
+        // 5. Заменяем старый контур на новый
+        cut.Contour.Clear();
+        for (var m = 0; m < newContour.Count; m++) {
+            var srcObj = newContour.Item(m);
+            if (srcObj.TypeName == "T2DLine") {
+                cut.Contour.AddLine(srcObj.Pos1.x, srcObj.Pos1.y, srcObj.Pos2.x, srcObj.Pos2.y);
+            } else if (srcObj.TypeName == "T2DArc") {
+                cut.Contour.AddArc(srcObj.Center.x, srcObj.Center.y, srcObj.Radius, srcObj.StartAngle, srcObj.EndAngle);
+            } else if (srcObj.TypeName == "T2DCircle") {
+                cut.Contour.AddCircle(srcObj.Center.x, srcObj.Center.y, srcObj.Radius);
             }
         }
     }
+    
+    // Перестраиваем панель для применения изменений
+    panel.Build();
 }
 
-//***************************************************************************//
-
-// Вызов функции для выбранного объекта модели
-ExtendNotchsBeyondPanel(Model.Selected);
-
-// Сообщение об успешном выполнении
-alert('ok');
+// Запуск для выбранной панели
+if (Model.Selected && Model.Selected.TypeName == "TPanel") {
+    ExtendNotches(Model.Selected);
+    alert("Выемки расширены на 6 мм за края панели там, где было касание.");
+} else {
+    alert("Пожалуйста, выберите панель (TPanel) для обработки.");
+}
