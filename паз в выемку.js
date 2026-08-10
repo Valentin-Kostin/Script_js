@@ -69,10 +69,15 @@
             }
 
             panel.Cuts[i].Contour.Clear();
+
+            // Построение нового контура
             for (var t = 0; t < traj1_1.Count; ++t) {
-                if (traj1_1.Objects[t] == '[object T2DLine]') {
+                var obj = traj1_1.Objects[t];
+                
+                if (obj === '[object T2DLine]') {
                     panel.Cuts[i].Contour.AddLine(traj1_1.Objects[t].Pos1, traj1_1.Objects[t].Pos2);
                     panel.Cuts[i].Contour.AddLine(traj1_2.Objects[t].Pos1, traj1_2.Objects[t].Pos2);
+                    
                     if (!traj_pos1) {
                         traj_pos1 = {
                             p1: traj1_1.Objects[t].Pos1,
@@ -84,9 +89,11 @@
                         p2: traj1_2.Objects[t].Pos2
                     };
                 }
-                if (traj1_1.Objects[t] == '[object T2DArc]') {
+                
+                if (obj === '[object T2DArc]') {
                     panel.Cuts[i].Contour.AddArc3(traj1_1.Objects[t].Pos1, traj1_1.Objects[t].ArcCenter(), traj1_1.Objects[t].Pos2);
                     panel.Cuts[i].Contour.AddArc3(traj1_2.Objects[t].Pos1, traj1_2.Objects[t].ArcCenter(), traj1_2.Objects[t].Pos2);
+                    
                     if (!traj_pos1) {
                         traj_pos1 = {
                             p1: traj1_1.Objects[t].Pos1,
@@ -98,7 +105,8 @@
                         p2: traj1_2.Objects[t].Pos2
                     };
                 }
-                if (traj1_1.Objects[t] == '[object T2DCircle]') {
+                
+                if (obj === '[object T2DCircle]') {
                     panel.Cuts[i].Contour.AddCircle(traj2_1.Objects[t].Center.x, traj2_1.Objects[t].Center.y, traj2_1.Objects[t].CirRadius);
                     panel.Cuts[i].Contour.AddCircle(traj2_2.Objects[t].Center.x, traj2_2.Objects[t].Center.y, traj2_2.Objects[t].CirRadius);
                 }
@@ -107,17 +115,30 @@
                 panel.Cuts[i].Contour.AddLine(traj_pos1.p1.x, traj_pos1.p1.y, traj_pos1.p2.x, traj_pos1.p2.y);
                 panel.Cuts[i].Contour.AddLine(traj_pos2.p1.x, traj_pos2.p1.y, traj_pos2.p2.x, traj_pos2.p2.y);
             }
+
+            // Обновление параметров выемки
             panel.Cuts[i].CutType = 2;
             panel.Cuts[i].Trajectory.Clear();
             panel.Cuts[i].Name = 'выемка';
             panel.Cuts[i].Sign = 'выемка';
             panel.Cuts[i].DeleteParams();
-            panel.Build();
+            
+            // Флаг необходимости перестроения панели
+            needsRebuild = true;
         }
     }
+
+    // Перестроение панели один раз после всех изменений
+    if (needsRebuild && panel.Build) {
+        panel.Build();
+    }
 }
+
 //***************************************************************************//
 
-CutsToNotchs(Model.Selected);
-
-alert('ok');
+if (Model && Model.Selected) {
+    CutsToNotchs(Model.Selected);
+    alert('ok');
+} else {
+    alert('Ошибка: панель не выбрана');
+}
