@@ -189,6 +189,11 @@ function CutsToNotchs(panel) {
         panel.Build();
         Model.Refresh();
     }
+
+    // Перестроение панели один раз после всех изменений
+    if (needsRebuild && panel.Build) {
+        panel.Build();
+    }
 }
 
 //***************************************************************************//
