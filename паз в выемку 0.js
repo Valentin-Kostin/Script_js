@@ -114,6 +114,74 @@ function CutsToNotchs(panel) {
             panel.Build();
         }
     }
+    
+    // Проверка выемок на касание краев панели и добавление вылета за пределы
+    // Если выемка касается края панели с точностью 0.1, расширяем её на 6 мм ЗА край панели
+    for (var i = panel.Cuts.Count - 1; i > -1; --i) {
+        if (panel.Cuts[i].CutType == 2) { // Проверяем только выемки
+            var cut = panel.Cuts[i];
+            var tolerance = 0.1;
+            var extendLength = 6.0;
+            var extendLeft = false;
+            var extendRight = false;
+            var extendBottom = false;
+            var extendTop = false;
+            
+            // Получаем габариты контура выемки
+            var minX = +cut.Contour.Min.x.toFixed(2);
+            var maxX = +cut.Contour.Max.x.toFixed(2);
+            var minY = +cut.Contour.Min.y.toFixed(2);
+            var maxY = +cut.Contour.Max.y.toFixed(2);
+            
+            // Габариты панели
+            var panelWidth = +panel.GSize.x.toFixed(2);
+            var panelThickness = +panel.GSize.z.toFixed(2);
+            
+            // Проверяем касание левого края (x = 0)
+            if (Math.abs(minX - 0) < tolerance) {
+                extendLeft = true;
+            }
+            // Проверяем касание правого края (x = panel.GSize.x)
+            if (Math.abs(maxX - panelWidth) < tolerance) {
+                extendRight = true;
+            }
+            // Проверяем касание нижнего края (y = 0)
+            if (Math.abs(minY - 0) < tolerance) {
+                extendBottom = true;
+            }
+            // Проверяем касание верхнего края (y = panel.GSize.z)
+            if (Math.abs(maxY - panelThickness) < tolerance) {
+                extendTop = true;
+            }
+            
+            // Если выемка касается любого края, расширяем её только в сторону касания
+            if (extendLeft || extendRight || extendBottom || extendTop) {
+                var newContour = NewContour();
+                var extendedMinX = extendLeft ? minX - extendLength : minX;
+                var extendedMaxX = extendRight ? maxX + extendLength : maxX;
+                var extendedMinY = extendBottom ? minY - extendLength : minY;
+                var extendedMaxY = extendTop ? maxY + extendLength : maxY;
+                
+                // Строим новый расширенный контур (прямоугольник)
+                newContour.AddLine(extendedMinX, extendedMinY, extendedMaxX, extendedMinY);
+                newContour.AddLine(extendedMaxX, extendedMinY, extendedMaxX, extendedMaxY);
+                newContour.AddLine(extendedMaxX, extendedMaxY, extendedMinX, extendedMaxY);
+                newContour.AddLine(extendedMinX, extendedMaxY, extendedMinX, extendedMinY);
+                
+                // Заменяем контур выемки на расширенный
+                cut.Contour.Clear();
+                for (var t = 0; t < newContour.Count; ++t) {
+                    if (newContour.Objects[t] == '[object T2DLine]') {
+                        cut.Contour.AddLine(newContour.Objects[t].Pos1, newContour.Objects[t].Pos2);
+                    }
+                }
+                
+                // Обновляем траекторию и перестраиваем панель
+                cut.Trajectory.Clear();
+                panel.Build();
+            }
+        }
+    }
 }
 //***************************************************************************//
 
