@@ -46,7 +46,7 @@ if (!panel) {
             pocketMsg += "Min X: " + pocked_Min_x + ", Max X: " + pocked_Max_x + "\n";
             pocketMsg += "Min Y: " + pocked_Min_y + ", Max Y: " + pocked_Max_y + "\n";
             
-            alert(panelMsg+pocketMsg);
+            //alert(panelMsg+pocketMsg);
             
             // Допуск для проверки касания края (0.1 мм)
             var tolerance = 0.1;
@@ -64,12 +64,12 @@ if (!panel) {
                 alert('extendLeft ok');
             }
             // Проверяем касание правого края (x = panel.GSize.x)
-            else if (Math.abs(pocked_Max_x - shirina_P_Max) < tolerance) {
+            if (Math.abs(pocked_Max_x - shirina_P_Max) < tolerance) {
                 extendRight = true;
                 alert('extendRight ok');
             }
             // Проверяем касание нижнего края (y = 0)
-            else if (Math.abs(pocked_Min_y - dlina_P_Min) < tolerance) {
+            if (Math.abs(pocked_Min_y - dlina_P_Min) < tolerance) {
                 extendBottom = true;
                 alert('extendBottom ok');
             }
