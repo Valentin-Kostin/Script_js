@@ -13,6 +13,7 @@ if (!panel) {
 } else {
     // Формируем сообщение с координатами панели
     var panelMsg = "Панель:\n";
+    //находим актуальные координты панели
     var shirina_P_Min = panel.GMin.x;
     var shirina_P_Max = panel.GMax.x;
     var dlina_P_Min = panel.GMin.y;
@@ -36,6 +37,7 @@ if (!panel) {
             var cut = panel.Cuts[i];
             
             pocketMsg += "\nВыемка #" + (i + 1) + ":\n";
+            //находим актуальные координаты выемки
             var pocked_Min_x = cut.Contour.Min.x.toFixed(2);
             var pocked_Max_x = cut.Contour.Max.x.toFixed(2);
             var pocked_Min_y = cut.Contour.Min.y.toFixed(2);
