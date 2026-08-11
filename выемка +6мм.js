@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Скрипт отладки: вывод координат панели и выемок для БАЗИС-Мебельщик
  * 
  * Назначение: Выводит на экран координаты выделенной панели, 
@@ -14,10 +14,12 @@ if (!panel) {
     // Формируем сообщение с координатами панели
     var panelMsg = "Панель:\n";
     panelMsg += "Ширина (GSize.x): " + panel.GSize.x + " мм\n";
+    panelMsg += "Длина (GSize.y): " + panel.GSize.y + " мм\n";
     panelMsg += "Толщина (GSize.z): " + panel.GSize.z + " мм\n";
-    panelMsg += "Min X: " + panel.Min.x + ", Max X: " + panel.Max.x + "\n";
-    panelMsg += "Min Y: " + panel.Min.y + ", Max Y: " + panel.Max.y + "\n";
-    panelMsg += "Min Z: " + panel.Min.z + ", Max Z: " + panel.Max.z + "\n";
+    alert(panelMsg);
+    panelMsg += "Min X: " + panel.GMin.x + ", Max X: " + panel.GMax.x + "\n";
+    panelMsg += "Min Y: " + panel.GMin.y + ", Max Y: " + panel.GMax.y + "\n";
+    panelMsg += "Min Z: " + panel.GMin.z + ", Max Z: " + panel.GMax.z + "\n";
     
     alert(panelMsg);
     
@@ -50,5 +52,5 @@ if (!panel) {
         notchesMsg += "Выемки не найдены.";
     }
     
-    alert(notchesMsg);
+    alert(panelMsg+notchesMsg);
 }
