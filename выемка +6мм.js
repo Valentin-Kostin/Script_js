@@ -31,7 +31,7 @@ if (!panel) {
     var notchCount = 0;
     var pocketMsg = "Выемки:\n";
     
-    for (var i = 0; i < panel.Cuts.Count; i++) {
+    for (var i = panel.Cuts.Count - 1; i > -1; --i) {
         if (panel.Cuts[i].CutType == 2) { // Проверяем только выемки
             notchCount++;
             var cut = panel.Cuts[i];
@@ -56,73 +56,81 @@ if (!panel) {
             // Флаги для отслеживания изменений
             var modified = false;
             
-            for (var t = 0; t < cut.Contour.Count; t++) {
-                var obj = cut.Contour.Objects[t];
-                if (obj == '[object T2DLine]') {
-                    var x1 = obj.Pos1.x;
-                    var y1 = obj.Pos1.y;
-                    var x2 = obj.Pos2.x;
-                    var y2 = obj.Pos2.y;
+            // Проверяем касание левого края (x = 0)
+            if (Math.abs(pocked_Min_x - shirina_P_Min) < tolerance) {
+                extendLeft = true;
+                alert('extendLeft ok');
+            }
+            // Проверяем касание правого края (x = panel.GSize.x)
+            else if (Math.abs(pocked_Max_x - shirina_P_Max) < tolerance) {
+                extendRight = true;
+                alert('extendRight ok');
+            }
+            // Проверяем касание нижнего края (y = 0)
+            else if (Math.abs(pocked_Min_y - dlina_P_Min) < tolerance) {
+                extendBottom = true;
+                alert('extendBottom ok');
+            }
+            // Проверяем касание верхнего края (y = panel.GSize.z)
+            if (Math.abs(pocked_Max_y - dlina_P_Max) < tolerance) {
+                extendTop = true;
+                alert('extendTop ok');
+            }
+            
+            // Если выемка касается любого края (одного, двух, трех или четырех), 
+            // расширяем её в сторону касающихся краев
+            if (extendLeft || extendRight || extendBottom || extendTop) {
+                var newContour = NewContour();
+                
+                // Проходим по всем объектам исходного контура и расширяем их
+                for (var t = 0; t < cut.Contour.Count; ++t) {
+                    var obj = cut.Contour.Objects[t];
                     
-                    pocketMsg += "  Линия: (" + x1.toFixed(2) + ", " + y1.toFixed(2) + ") -> (" + 
-                                  x2.toFixed(2) + ", " + y2.toFixed(2) + ")";
-                    
-                    // Проверяем, лежит ли сегмент на границе панели
-                    // Границы панели
-                    var minX = shirina_P_Min;
-                    var maxX = shirina_P_Max;
-                    var minY = dlina_P_Min;
-                    var maxY = dlina_P_Max;
-                    
-                    // Определяем направление нормали для расширения
-                    // Проверяем касание левой или правой границы (по X)
-                    var isOnLeftEdge = Math.abs(x1 - minX) < tolerance && Math.abs(x2 - minX) < tolerance;
-                    var isOnRightEdge = Math.abs(x1 - maxX) < tolerance && Math.abs(x2 - maxX) < tolerance;
-                    
-                    // Проверяем касание нижней или верхней границы (по Y)
-                    var isOnBottomEdge = Math.abs(y1 - minY) < tolerance && Math.abs(y2 - minY) < tolerance;
-                    var isOnTopEdge = Math.abs(y1 - maxY) < tolerance && Math.abs(y2 - maxY) < tolerance;
-                    
-                    var newP1 = {x: x1, y: y1};
-                    var newP2 = {x: x2, y: y2};
-                    
-                    if (isOnLeftEdge) {
-                        // Расширяем влево (уменьшаем X)
-                        newP1.x -= extendDist;
-                        newP2.x -= extendDist;
-                        pocketMsg += " [Расширено влево на 6мм]";
-                        modified = true;
-                    } else if (isOnRightEdge) {
-                        // Расширяем вправо (увеличиваем X)
-                        newP1.x += extendDist;
-                        newP2.x += extendDist;
-                        pocketMsg += " [Расширено вправо на 6мм]";
-                        modified = true;
-                    } else if (isOnBottomEdge) {
-                        // Расширяем вниз (уменьшаем Y)
-                        newP1.y -= extendDist;
-                        newP2.y -= extendDist;
-                        pocketMsg += " [Расширено вниз на 6мм]";
-                        modified = true;
-                    } else if (isOnTopEdge) {
-                        // Расширяем вверх (увеличиваем Y)
-                        newP1.y += extendDist;
-                        newP2.y += extendDist;
-                        pocketMsg += " [Расширено вверх на 6мм]";
-                        modified = true;
+                    if (obj == '[object T2DLine]') {
+                        var x1 = obj.Pos1.x;
+                        var y1 = obj.Pos1.y;
+                        var x2 = obj.Pos2.x;
+                        var y2 = obj.Pos2.y;
+                        
+                        // --- Обработка точки 1 (Pos1) ---
+                        // Проверяем касание границ ПАНЕЛИ напрямую, а не границ контура
+                        var isP1OnLeft = (Math.abs(x1 - shirina_P_Min) < tolerance);
+                        var isP1OnRight = (Math.abs(x1 - shirina_P_Max) < tolerance);
+                        var isP1OnBottom = (Math.abs(y1 - dlina_P_Min) < tolerance);
+                        var isP1OnTop = (Math.abs(y1 - dlina_P_Max) < tolerance);
+                        
+                        if (isP1OnLeft && extendLeft) { x1 -= extendLength; }
+                        if (isP1OnRight && extendRight) { x1 += extendLength; }
+                        if (isP1OnBottom && extendBottom) { y1 -= extendLength; }
+                        if (isP1OnTop && extendTop) { y1 += extendLength; }
+                        
+                        // --- Обработка точки 2 (Pos2) ---
+                        var isP2OnLeft = (Math.abs(x2 - shirina_P_Min) < tolerance);
+                        var isP2OnRight = (Math.abs(x2 - shirina_P_Max) < tolerance);
+                        var isP2OnBottom = (Math.abs(y2 - dlina_P_Min) < tolerance);
+                        var isP2OnTop = (Math.abs(y2 - dlina_P_Max) < tolerance);
+                        
+                        if (isP2OnLeft && extendLeft) { x2 -= extendLength; }
+                        if (isP2OnRight && extendRight) { x2 += extendLength; }
+                        if (isP2OnBottom && extendBottom) { y2 -= extendLength; }
+                        if (isP2OnTop && extendTop) { y2 += extendLength; }
+                        
+                        // Добавляем измененную линию в новый контур
+                        newContour.AddLine(x1, y1, x2, y2);
                     }
-                    
-                    pocketMsg += "\n";
-                    
-                    // Применяем изменения к траектории
-                    if (modified) {
-                        obj.Pos1.x = newP1.x;
-                        obj.Pos1.y = newP1.y;
-                        obj.Pos2.x = newP2.x;
-                        obj.Pos2.y = newP2.y;
-                        modified = false; // Сбрасываем флаг после применения
+                    // Дуги и окружности игнорируются — скрипт работает только с линейными сегментами
+                }
+                
+                // Заменяем контур выемки на расширенный
+                cut.Contour.Clear();
+                for (var t = 0; t < newContour.Count; ++t) {
+                    if (newContour.Objects[t] == '[object T2DLine]') {
+                        cut.Contour.AddLine(newContour.Objects[t].Pos1, newContour.Objects[t].Pos2);
                     }
                 }
+                
+                // Перестраиваем панель (траектория пересчитается автоматически)
+                panel.Build();
             }
         }
     }
