@@ -25,7 +25,7 @@ if (!panel) {
     panelMsg += "Min X: " + shirina_P_Min + ", Max X: " + shirina_P_Max + "\n";
     panelMsg += "Min Y: " + dlina_P_Min + ", Max Y: " + dlina_P_Max + "\n";
     
-    alert(panelMsg);
+    //alert(panelMsg);
     
     // Считаем и выводим выемки, а также расширяем их за пределы панели
     var notchCount = 0;
@@ -46,13 +46,15 @@ if (!panel) {
             pocketMsg += "Min X: " + pocked_Min_x + ", Max X: " + pocked_Max_x + "\n";
             pocketMsg += "Min Y: " + pocked_Min_y + ", Max Y: " + pocked_Max_y + "\n";
             
-            // Выводим точки контура и выполняем расширение
-            pocketMsg += "Точки контура:\n";
+            alert(panelMsg+pocketMsg);
             
             // Допуск для проверки касания края (0.1 мм)
             var tolerance = 0.1;
             var extendDist = 6.0; // Расстояние расширения в мм
-            
+            var extendLeft = false;
+            var extendRight = false;
+            var extendBottom = false;
+            var extendTop = false;
             // Флаги для отслеживания изменений
             var modified = false;
             
@@ -99,10 +101,10 @@ if (!panel) {
                         var isP1OnBottom = (Math.abs(y1 - dlina_P_Min) < tolerance);
                         var isP1OnTop = (Math.abs(y1 - dlina_P_Max) < tolerance);
                         
-                        if (isP1OnLeft && extendLeft) { x1 -= extendLength; }
-                        if (isP1OnRight && extendRight) { x1 += extendLength; }
-                        if (isP1OnBottom && extendBottom) { y1 -= extendLength; }
-                        if (isP1OnTop && extendTop) { y1 += extendLength; }
+                        if (isP1OnLeft && extendLeft) { x1 -= extendDist; }
+                        if (isP1OnRight && extendRight) { x1 += extendDist; }
+                        if (isP1OnBottom && extendBottom) { y1 -= extendDist; }
+                        if (isP1OnTop && extendTop) { y1 += extendDist; }
                         
                         // --- Обработка точки 2 (Pos2) ---
                         var isP2OnLeft = (Math.abs(x2 - shirina_P_Min) < tolerance);
@@ -110,10 +112,10 @@ if (!panel) {
                         var isP2OnBottom = (Math.abs(y2 - dlina_P_Min) < tolerance);
                         var isP2OnTop = (Math.abs(y2 - dlina_P_Max) < tolerance);
                         
-                        if (isP2OnLeft && extendLeft) { x2 -= extendLength; }
-                        if (isP2OnRight && extendRight) { x2 += extendLength; }
-                        if (isP2OnBottom && extendBottom) { y2 -= extendLength; }
-                        if (isP2OnTop && extendTop) { y2 += extendLength; }
+                        if (isP2OnLeft && extendLeft) { x2 -= extendDist; }
+                        if (isP2OnRight && extendRight) { x2 += extendDist; }
+                        if (isP2OnBottom && extendBottom) { y2 -= extendDist; }
+                        if (isP2OnTop && extendTop) { y2 += extendDist; }
                         
                         // Добавляем измененную линию в новый контур
                         newContour.AddLine(x1, y1, x2, y2);
@@ -135,9 +137,7 @@ if (!panel) {
         }
     }
     
-    if (notchCount === 0) {
-        pocketMsg += "Выемки не найдены.";
-    }
+    //if (notchCount === 0) {pocketMsg += "Выемки не найдены.";}
     
-    alert(panelMsg+pocketMsg);
+    //alert(pocketMsg);
 }
