@@ -75,6 +75,12 @@ function ExtendNotchsBeyondPanel(panel) {
             // расширяем её в сторону касающихся краев
             if (extendLeft || extendRight || extendBottom || extendTop) {
                 var newContour = NewContour();
+                var addedPoints = {}; // Для предотвращения дублирования точек
+                
+                // Функция для создания уникального ключа точки
+                function getPointKey(x, y) {
+                    return x.toFixed(3) + '_' + y.toFixed(3);
+                }
                 
                 // Проходим по всем объектам исходного контура и расширяем их
                 for (var t = 0; t < cut.Contour.Count; ++t) {
@@ -86,10 +92,6 @@ function ExtendNotchsBeyondPanel(panel) {
                         var x2 = obj.Pos2.x;
                         var y2 = obj.Pos2.y;
                         
-                        // Флаг изменения точек
-                        var p1Changed = false;
-                        var p2Changed = false;
-                        
                         // --- Обработка точки 1 (Pos1) ---
                         // Проверяем касание границ ПАНЕЛИ напрямую, а не границ контура
                         var isP1OnLeft = (Math.abs(x1 - 0) < tolerance);
@@ -97,10 +99,10 @@ function ExtendNotchsBeyondPanel(panel) {
                         var isP1OnBottom = (Math.abs(y1 - 0) < tolerance);
                         var isP1OnTop = (Math.abs(y1 - panelThickness) < tolerance);
                         
-                        if (isP1OnLeft && extendLeft) { x1 -= extendLength; p1Changed = true; }
-                        if (isP1OnRight && extendRight) { x1 += extendLength; p1Changed = true; }
-                        if (isP1OnBottom && extendBottom) { y1 -= extendLength; p1Changed = true; }
-                        if (isP1OnTop && extendTop) { y1 += extendLength; p1Changed = true; }
+                        if (isP1OnLeft && extendLeft) { x1 -= extendLength; }
+                        if (isP1OnRight && extendRight) { x1 += extendLength; }
+                        if (isP1OnBottom && extendBottom) { y1 -= extendLength; }
+                        if (isP1OnTop && extendTop) { y1 += extendLength; }
                         
                         // --- Обработка точки 2 (Pos2) ---
                         var isP2OnLeft = (Math.abs(x2 - 0) < tolerance);
@@ -108,23 +110,15 @@ function ExtendNotchsBeyondPanel(panel) {
                         var isP2OnBottom = (Math.abs(y2 - 0) < tolerance);
                         var isP2OnTop = (Math.abs(y2 - panelThickness) < tolerance);
                         
-                        if (isP2OnLeft && extendLeft) { x2 -= extendLength; p2Changed = true; }
-                        if (isP2OnRight && extendRight) { x2 += extendLength; p2Changed = true; }
-                        if (isP2OnBottom && extendBottom) { y2 -= extendLength; p2Changed = true; }
-                        if (isP2OnTop && extendTop) { y2 += extendLength; p2Changed = true; }
+                        if (isP2OnLeft && extendLeft) { x2 -= extendLength; }
+                        if (isP2OnRight && extendRight) { x2 += extendLength; }
+                        if (isP2OnBottom && extendBottom) { y2 -= extendLength; }
+                        if (isP2OnTop && extendTop) { y2 += extendLength; }
                         
                         // Добавляем измененную линию в новый контур
                         newContour.AddLine(x1, y1, x2, y2);
                     }
-                    // Если есть дуги, просто копируем их без изменений (для упрощения)
-                    // Примечание: Для точного расширения дуг требуется более сложная математика
-                    else if (obj == '[object T2DArc]') {
-                        newContour.AddArc3(obj.Pos1, obj.Pos2, obj.Pos3);
-                    }
-                    // Если есть окружности, просто копируем их без изменений
-                    else if (obj == '[object T2DCircle]') {
-                        newContour.AddCircle(obj.Center, obj.Radius);
-                    }
+                    // Дуги и окружности игнорируются — скрипт работает только с линейными сегментами
                 }
                 
                 // Заменяем контур выемки на расширенный
@@ -132,15 +126,10 @@ function ExtendNotchsBeyondPanel(panel) {
                 for (var t = 0; t < newContour.Count; ++t) {
                     if (newContour.Objects[t] == '[object T2DLine]') {
                         cut.Contour.AddLine(newContour.Objects[t].Pos1, newContour.Objects[t].Pos2);
-                    } else if (newContour.Objects[t] == '[object T2DArc]') {
-                        cut.Contour.AddArc3(newContour.Objects[t].Pos1, newContour.Objects[t].Pos2, newContour.Objects[t].Pos3);
-                    } else if (newContour.Objects[t] == '[object T2DCircle]') {
-                        cut.Contour.AddCircle(newContour.Objects[t].Center, newContour.Objects[t].Radius);
                     }
                 }
                 
-                // Обновляем траекторию и перестраиваем панель
-                cut.Trajectory.Clear();
+                // Перестраиваем панель (траектория пересчитается автоматически)
                 panel.Build();
             }
         }
