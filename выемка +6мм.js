@@ -1,45 +1,45 @@
 /**
- * РЎРєСЂРёРїС‚ РѕС‚Р»Р°РґРєРё: РІС‹РІРѕРґ РєРѕРѕСЂРґРёРЅР°С‚ РїР°РЅРµР»Рё Рё РІС‹РµРјРѕРє РґР»СЏ Р‘РђР—РРЎ-РњРµР±РµР»СЊС‰РёРє
+ * Скрипт отладки: вывод координат панели и выемок для БАЗИС-Мебельщик
  * 
- * РќР°Р·РЅР°С‡РµРЅРёРµ: Р’С‹РІРѕРґРёС‚ РЅР° СЌРєСЂР°РЅ РєРѕРѕСЂРґРёРЅР°С‚С‹ РІС‹РґРµР»РµРЅРЅРѕР№ РїР°РЅРµР»Рё, 
- * Р·Р°С‚РµРј РєРѕРѕСЂРґРёРЅР°С‚С‹ РІСЃРµС… РІС‹РµРјРѕРє РІ СЌС‚РѕР№ РїР°РЅРµР»Рё.
+ * Назначение: Выводит на экран координаты выделенной панели, 
+ * затем координаты всех выемок в этой панели.
  */
 
-// РџРѕР»СѓС‡Р°РµРј РІС‹РґРµР»РµРЅРЅСѓСЋ РїР°РЅРµР»СЊ
+// Получаем выделенную панель
 var panel = Model.Selected;
 
 if (!panel) {
-    alert("РћС€РёР±РєР°: РќРµ РІС‹Р±СЂР°РЅР° РїР°РЅРµР»СЊ!");
+    alert("Ошибка: Не выбрана панель!");
 } else {
-    // Р¤РѕСЂРјРёСЂСѓРµРј СЃРѕРѕР±С‰РµРЅРёРµ СЃ РєРѕРѕСЂРґРёРЅР°С‚Р°РјРё РїР°РЅРµР»Рё
-    var panelMsg = "РџР°РЅРµР»СЊ:\n";
-    panelMsg += "РЁРёСЂРёРЅР° (GSize.x): " + panel.GSize.x + " РјРј\n";
-    panelMsg += "РўРѕР»С‰РёРЅР° (GSize.z): " + panel.GSize.z + " РјРј\n";
+    // Формируем сообщение с координатами панели
+    var panelMsg = "Панель:\n";
+    panelMsg += "Ширина (GSize.x): " + panel.GSize.x + " мм\n";
+    panelMsg += "Толщина (GSize.z): " + panel.GSize.z + " мм\n";
     panelMsg += "Min X: " + panel.Min.x + ", Max X: " + panel.Max.x + "\n";
     panelMsg += "Min Y: " + panel.Min.y + ", Max Y: " + panel.Max.y + "\n";
     panelMsg += "Min Z: " + panel.Min.z + ", Max Z: " + panel.Max.z + "\n";
     
     alert(panelMsg);
     
-    // РЎС‡РёС‚Р°РµРј Рё РІС‹РІРѕРґРёРј РІС‹РµРјРєРё
+    // Считаем и выводим выемки
     var notchCount = 0;
-    var notchesMsg = "Р’С‹РµРјРєРё:\n";
+    var notchesMsg = "Выемки:\n";
     
     for (var i = 0; i < panel.Cuts.Count; i++) {
-        if (panel.Cuts[i].CutType == 2) { // РџСЂРѕРІРµСЂСЏРµРј С‚РѕР»СЊРєРѕ РІС‹РµРјРєРё
+        if (panel.Cuts[i].CutType == 2) { // Проверяем только выемки
             notchCount++;
             var cut = panel.Cuts[i];
             
-            notchesMsg += "\nР’С‹РµРјРєР° #" + (i + 1) + ":\n";
+            notchesMsg += "\nВыемка #" + (i + 1) + ":\n";
             notchesMsg += "Min X: " + cut.Contour.Min.x.toFixed(2) + ", Max X: " + cut.Contour.Max.x.toFixed(2) + "\n";
             notchesMsg += "Min Y: " + cut.Contour.Min.y.toFixed(2) + ", Max Y: " + cut.Contour.Max.y.toFixed(2) + "\n";
             
-            // Р’С‹РІРѕРґРёРј С‚РѕС‡РєРё РєРѕРЅС‚СѓСЂР°
-            notchesMsg += "РўРѕС‡РєРё РєРѕРЅС‚СѓСЂР°:\n";
+            // Выводим точки контура
+            notchesMsg += "Точки контура:\n";
             for (var t = 0; t < cut.Contour.Count; t++) {
                 var obj = cut.Contour.Objects[t];
                 if (obj == '[object T2DLine]') {
-                    notchesMsg += "  Р›РёРЅРёСЏ: (" + obj.Pos1.x.toFixed(2) + ", " + obj.Pos1.y.toFixed(2) + ") -> (" + 
+                    notchesMsg += "  Линия: (" + obj.Pos1.x.toFixed(2) + ", " + obj.Pos1.y.toFixed(2) + ") -> (" + 
                                   obj.Pos2.x.toFixed(2) + ", " + obj.Pos2.y.toFixed(2) + ")\n";
                 }
             }
@@ -47,7 +47,7 @@ if (!panel) {
     }
     
     if (notchCount === 0) {
-        notchesMsg += "Р’С‹РµРјРєРё РЅРµ РЅР°Р№РґРµРЅС‹.";
+        notchesMsg += "Выемки не найдены.";
     }
     
     alert(notchesMsg);
