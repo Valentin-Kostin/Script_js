@@ -37,7 +37,7 @@ function ExtendNotchsBeyondPanel(panel) {
     for (var i = panel.Cuts.Count - 1; i > -1; --i) {
         if (panel.Cuts[i].CutType == 2) { // Проверяем только выемки
             var cut = panel.Cuts[i];
-            var tolerance = 0.1;
+            var tolerance = 0.5;
             var extendLength = 6.0;
             var extendLeft = false;
             var extendRight = false;
@@ -49,39 +49,46 @@ function ExtendNotchsBeyondPanel(panel) {
             var maxX = +cut.Contour.Max.x.toFixed(2);
             var minY = +cut.Contour.Min.y.toFixed(2);
             var maxY = +cut.Contour.Max.y.toFixed(2);
+            alert("minX");
+            alert(minX);
+            alert("maxX");
+            alert(maxX);
+            alert("minY");
+            alert(minY);
+            alert("maxY");
+            alert(maxY);
             
             // Габариты панели
             var panelWidth = +panel.GSize.x.toFixed(2);
-            var panelThickness = +panel.GSize.z.toFixed(2);
+            var panelLength = +panel.GSize.y.toFixed(2);
+            alert(panelWidth);
+            alert(panelLength);
             
             // Проверяем касание левого края (x = 0)
             if (Math.abs(minX - 0) < tolerance) {
                 extendLeft = true;
+                alert('extendLeft ok');
             }
             // Проверяем касание правого края (x = panel.GSize.x)
-            if (Math.abs(maxX - panelWidth) < tolerance) {
+            else if (Math.abs(maxX - panelWidth) < tolerance) {
                 extendRight = true;
+                alert('extendRight ok');
             }
             // Проверяем касание нижнего края (y = 0)
-            if (Math.abs(minY - 0) < tolerance) {
+            else if (Math.abs(minY - 0) < tolerance) {
                 extendBottom = true;
+                alert('extendBottom ok');
             }
             // Проверяем касание верхнего края (y = panel.GSize.z)
-            if (Math.abs(maxY - panelThickness) < tolerance) {
+            if (Math.abs(maxY - panelLength) < tolerance) {
                 extendTop = true;
+                alert('extendTop ok');
             }
             
             // Если выемка касается любого края (одного, двух, трех или четырех), 
             // расширяем её в сторону касающихся краев
             if (extendLeft || extendRight || extendBottom || extendTop) {
                 var newContour = NewContour();
-                var addedPoints = {}; // Для предотвращения дублирования точек
-                
-                // Функция для создания уникального ключа точки
-                function getPointKey(x, y) {
-                    return x.toFixed(3) + '_' + y.toFixed(3);
-                }
-                
                 // Проходим по всем объектам исходного контура и расширяем их
                 for (var t = 0; t < cut.Contour.Count; ++t) {
                     var obj = cut.Contour.Objects[t];
@@ -97,7 +104,7 @@ function ExtendNotchsBeyondPanel(panel) {
                         var isP1OnLeft = (Math.abs(x1 - 0) < tolerance);
                         var isP1OnRight = (Math.abs(x1 - panelWidth) < tolerance);
                         var isP1OnBottom = (Math.abs(y1 - 0) < tolerance);
-                        var isP1OnTop = (Math.abs(y1 - panelThickness) < tolerance);
+                        var isP1OnTop = (Math.abs(y1 - panelLength) < tolerance);
                         
                         if (isP1OnLeft && extendLeft) { x1 -= extendLength; }
                         if (isP1OnRight && extendRight) { x1 += extendLength; }
@@ -108,7 +115,7 @@ function ExtendNotchsBeyondPanel(panel) {
                         var isP2OnLeft = (Math.abs(x2 - 0) < tolerance);
                         var isP2OnRight = (Math.abs(x2 - panelWidth) < tolerance);
                         var isP2OnBottom = (Math.abs(y2 - 0) < tolerance);
-                        var isP2OnTop = (Math.abs(y2 - panelThickness) < tolerance);
+                        var isP2OnTop = (Math.abs(y2 - panelLength) < tolerance);
                         
                         if (isP2OnLeft && extendLeft) { x2 -= extendLength; }
                         if (isP2OnRight && extendRight) { x2 += extendLength; }
