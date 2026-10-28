@@ -1,0 +1,390 @@
+/**
+ * создать панель из списка.js
+ *
+ * Скрипт для БАЗИС-Мебельщик (BazisScript).
+ * Читает список фанерованных панелей из ТЕКСТОВОГО файла (.txt), например
+ * "1933м1 Фанерование.txt" (БЛАНК ЗАКАЗА ФАНЕРОВАНЫХ ПАНЕЛЕЙ), и создаёт
+ * горизонтальные панели по каждой позиции списка.
+ *
+ * Формат .txt: поля разделены табуляцией, строки — CRLF; часть полей
+ * заключена в кавычки и содержит переносы строк (например
+ * «Шпонир. МДФ 9.2 мм - Дуб\nЕвропейский, тангенциальный»), поэтому файл
+ * сначала склеивается в один поток и разбивается на записи по признаку
+ * конца строки Excel («кавычка + перевод строки» либо «CRLF»).
+ * Кодировка определяется автоматически: UTF-16LE/BE (с BOM или Unicode)
+ * или ANSI (cp1251).
+ *
+ * Столбцы бланка (нумерация с 0):
+ *   0 — примечание («текстура под углом 45град.», «Подбор»)
+ *   1 — ОСНОВА, мм            <-- толщина создаваемой панели (8, 12, 16, 18, 22)
+ *   2 — готовая толщина, мм (9,2 / 13,2 / ...) — НЕ используется
+ *   3 — шпон стороны «А»
+ *   4 — Длина (направление волокон шпона), мм
+ *   5 — Ширина, мм
+ *   6 — Количество штук
+ *   7 — Количество фанерованных сторон (1 или 2)
+ *   8 — М²
+ *   9 — сторона «В» (чистовой/черновой шпон)
+ *
+ * Позиции, у которых вместо размеров указан текст («Фасады с ручкой J в
+ * массиве»), а также строки шапки пропускаются.
+ *
+ * Панели создаются рядами: длина — вдоль оси X, ширина — вдоль оси Z,
+ * толщина — по оси Y. Между панелями шаг = размер + отступ (Gap).
+ */
+
+// ==== НАСТРОЙКИ =====================================================================
+var FileName        = '1933м1 Фанерование.txt'; // ожидаемый .txt рядом со скриптом
+var ColBase         = 1;      // столбец «Основа» — толщина панели, мм (8, 12, 16, 18, 22)
+var ColLength       = 4;      // столбец «Длина (направление волокон шпона)», мм
+var ColWidth        = 5;      // столбец «Ширина», мм
+var ColQty          = 6;      // столбец «Количество штук»
+var AllowedBase     = [8, 10, 12, 16, 18, 19, 22]; // допустимые толщины основы, мм
+var Gap             = 100;    // отступ между панелями при раскладке, мм
+var MaxPerRow       = 5;      // максимум панелей в одном ряду (дальше — новый ряд)
+var PanelName       = 'фанерованная'; // имя создаваемых панелей
+// ====================================================================================
+
+// ---- Выбор файла -------------------------------------------------------------------
+if (!fileExists(FileName)) {
+    var msg = 'Файл "' + FileName + '" не найден рядом со скриптом.\n\n' +
+              'Скрипт читает только текстовые файлы .txt\n' +
+              '(например выгрузку бланка заказа «1933м1 Фанерование.txt»).\n' +
+              'Выберите файл .txt вручную.';
+    if (!confirm(msg)) {
+        alert('Скрипт остановлен.');
+        throw '';
+    }
+    FileName = askReadTextFile('txt');
+    if (!FileName) {
+        alert('Файл не выбран. Скрипт остановлен.');
+        throw '';
+    }
+}
+
+// ---- Чтение файла с определением кодировки -----------------------------------------
+// Байт -> символ cp1251 (для файлов в кодировке Windows-1251)
+var CP1251_HI =
+    '\u0402\u0403\u20AC\u0452\u201E\u0453\u2026\u2020\u2021\u20AC\u2030\u0456\u0408' +
+    '\u0405\u0406\u0407\u0409\u201C\u201D\u2018\u2019\u201A\u201B\u2014\u2015\u0455' +
+    '\u0456\u0457\u0458\u0459\u045A'; // строки 0x80..0x9F (приблизительно, см. таблицу)
+
+function ChrCP1251(code) {
+    // Основные символы Windows-1251
+    if (code < 0x80) return String.fromCharCode(code);
+    if (code == 0x80) return '\u0402';
+    if (code == 0x81) return '\u0403';
+    if (code == 0x82) return '\u201A';
+    if (code == 0x83) return '\u0453';
+    if (code == 0x84) return '\u201E';
+    if (code == 0x85) return '\u2026';
+    if (code == 0x86) return '\u2020';
+    if (code == 0x87) return '\u2021';
+    if (code == 0x88) return '\u0408';
+    if (code == 0x89) return '\u2030';
+    if (code == 0x8A) return '\u0409';
+    if (code == 0x8B) return '\u2039';
+    if (code == 0x8C) return '\u040A';
+    if (code == 0x8D) return '\u040C';
+    if (code == 0x8E) return '\u040B';
+    if (code == 0x8F) return '\u040F';
+    if (code == 0x90) return '\u0452';
+    if (code == 0x91) return '\u2018';
+    if (code == 0x92) return '\u2019';
+    if (code == 0x93) return '\u201C';
+    if (code == 0x94) return '\u201D';
+    if (code == 0x95) return '\u2022';
+    if (code == 0x96) return '\u2013';
+    if (code == 0x97) return '\u2014';
+    if (code == 0x98) return '\u0458';
+    if (code == 0x99) return '\u2122';
+    if (code == 0x9A) return '\u0459';
+    if (code == 0x9B) return '\u203A';
+    if (code == 0x9C) return '\u045A';
+    if (code == 0x9D) return '\u045C';
+    if (code == 0x9E) return '\u045B';
+    if (code == 0x9F) return '\u045F';
+    if (code >= 0xA0 && code <= 0xFF) return String.fromCharCode(code + 0x400);
+    return String.fromCharCode(code);
+}
+
+// Расшифровка текста в байты (readTextFile возвращает текст; приводим к байтам)
+function TextToBytes(str) {
+    var arr = [];
+    for (var i = 0; i < str.length; ++i) {
+        var c = str.charCodeAt(i);
+        if (c <= 0xFF) arr.push(c);
+        else if (c >= 0x410 && c <= 0x44F) arr.push(c - 0x400); // кириллица cp1251
+        else if (c >= 0x400 && c <= 0x40F) arr.push(c - 0x3FF); // Ё/ё и др.
+        else arr.push(0x3F); // '?'
+    }
+    return arr;
+}
+
+function DecodeUtf16(bytes, littleEndian) {
+    var s = '';
+    for (var i = 0; i + 1 < bytes.length; i += 2) {
+        var lo = littleEndian ? bytes[i] : bytes[i + 1];
+        var hi = littleEndian ? bytes[i + 1] : bytes[i];
+        s += String.fromCharCode(lo | (hi << 8));
+    }
+    return s;
+}
+
+function DecodeCp1251(bytes) {
+    var s = '';
+    for (var i = 0; i < bytes.length; ++i) s += ChrCP1251(bytes[i]);
+    return s;
+}
+
+var raw = readTextFile(FileName);
+if (raw === undefined || raw === null || raw == '') {
+    alert('Не удалось прочитать файл: ' + FileName);
+    throw '';
+}
+
+var text = '' + raw;
+text = text.replace(/^\uFEFF/, '');
+
+// Если readTextFile вернул «сырые» байты как символы 0..255 — декодируем сами
+var bytes = null;
+if (/[^\t\r\n\x20-\x7E\u00A0-\u04FF]/.test(text) === false) {
+    // текст выглядит нормально (уже Unicode) — ничего не делаем
+}
+var looksRaw = true;
+for (var ci = 0; ci < Math.min(text.length, 400); ++ci) {
+    var cc = text.charCodeAt(ci);
+    if (cc > 0xFF) { looksRaw = false; break; }
+}
+if (looksRaw && text.length > 0) {
+    bytes = TextToBytes(text);
+    if (bytes.length > 1 && bytes[0] == 0xFF && bytes[1] == 0xFE) {
+        text = DecodeUtf16(bytes.slice(2), true);
+    } else if (bytes.length > 1 && bytes[0] == 0xFE && bytes[1] == 0xFF) {
+        text = DecodeUtf16(bytes.slice(2), false);
+    } else {
+        var asU16le = DecodeUtf16(bytes, true);
+        var cyr16 = (asU16le.match(/[\u0410-\u044F]/g) || []).length;
+        var src16 = (text.match(/[\u0410-\u044F]/g) || []).length;
+        if (cyr16 > src16 && /[А-Яа-я]/.test(asU16le)) text = asU16le;
+        else text = DecodeCp1251(bytes);
+    }
+}
+
+// ---- Разбор записей бланка ----------------------------------------------------------
+// Запись может занимать несколько физических строк (поля в кавычках с переносом).
+// Признак конца записи: перевод строки сразу за закрывающей кавычкой ("...\r\n) —
+// это признак «мягкого» переноса внутри ячейки Excel; обычный конец строки — \r\n.
+function SplitRecords(t) {
+    var recs = [];
+    var cur = '';
+    var inQuotes = false;
+    for (var i = 0; i < t.length; ++i) {
+        var ch = t.charAt(i);
+        if (ch == '"') {
+            inQuotes = !inQuotes;
+            cur += ch;
+        } else if (!inQuotes && (ch == '\r' || ch == '\n')) {
+            // пропускаем \n после \r
+            if (ch == '\r' && i + 1 < t.length && t.charAt(i + 1) == '\n') ++i;
+            recs.push(cur);
+            cur = '';
+        } else if (inQuotes && (ch == '\r' || ch == '\n')) {
+            // перенос внутри кавычек: следующий перевод строки завершает запись
+            var j = i;
+            while (j < t.length && (t.charAt(j) == '\r' || t.charAt(j) == '\n')) ++j;
+            if (j < t.length && t.charAt(j) != '\t') {
+                // за кавычкой идёт начало новой записи
+                recs.push(cur);
+                cur = '';
+                i = j - 1;
+            } else {
+                cur += ' ';
+                i = j - 1;
+            }
+        } else {
+            cur += ch;
+        }
+    }
+    if (cur.length) recs.push(cur);
+    return recs;
+}
+
+// Разбор одной записи на поля (учёт кавычек, двойных кавычек "")
+function SplitFields(rec) {
+    var res = [];
+    var cur = '';
+    var inQ = false;
+    for (var i = 0; i < rec.length; ++i) {
+        var ch = rec.charAt(i);
+        if (inQ) {
+            if (ch == '"') {
+                if (i + 1 < rec.length && rec.charAt(i + 1) == '"') { cur += '"'; ++i; }
+                else inQ = false;
+            } else cur += ch;
+        } else {
+            if (ch == '"') inQ = true;
+            else if (ch == '\t') { res.push(cur); cur = ''; }
+            else cur += ch;
+        }
+    }
+    res.push(cur);
+    return res;
+}
+
+// Число с плавающей запятой или точкой ("9,2" / "9.2" / " 600 ") -> Number или NaN
+function ParseNum(s) {
+    if (s === undefined || s === null) return NaN;
+    s = ('' + s).trim().replace(/["']/g, '').replace(/\s+/g, '');
+    if (s === '') return NaN;
+    if (!/^[-+]?[\d]*[.,]?[\d]+$/.test(s)) return NaN;
+    return parseFloat(s.replace(',', '.'));
+}
+
+// Целое число количества сторон / штук (допускается "1", "2")
+function ParseInt(s) {
+    var n = ParseNum(s);
+    if (isNaN(n)) return NaN;
+    return Math.floor(n + 0.5);
+}
+
+var records = SplitRecords(text);
+
+// Ищем строку заголовков, чтобы определить номера столбцов (если бланок изменён)
+var idxBase = ColBase, idxLen = ColLength, idxW = ColWidth, idxQty = ColQty;
+for (var h = 0; h < Math.min(records.length, 12); ++h) {
+    var hf = SplitFields(records[h]);
+    var joined = hf.join(' ').toLowerCase();
+    if (joined.indexOf('основа') >= 0 && joined.indexOf('толщина') >= 0) {
+        for (var c = 0; c < hf.length; ++c) {
+            var cell = hf[c].toLowerCase().replace(/\s+/g, ' ');
+            if (cell.indexOf('основа') >= 0) idxBase = c;
+            else if (cell.indexOf('длина') >= 0) idxLen = c;
+            else if (cell.indexOf('ширин') >= 0) idxW = c;
+            else if (cell.indexOf('количество штук') >= 0 || /^количество/.test(cell)) idxQty = c;
+        }
+        break;
+    }
+}
+
+// ---- Сбор позиций ------------------------------------------------------------------
+var items = [];   // {thickness, length, width, qty, sides, note, no}
+var skipped = [];
+var recNo = 0;
+
+for (var r = 0; r < records.length; ++r) {
+    ++recNo;
+    var rec = records[r];
+    if (!rec.trim()) continue;
+    var f = SplitFields(rec);
+
+    var thickness = ParseNum(f[idxBase]);
+    var length    = ParseNum(f[idxLen]);
+    var width     = ParseNum(f[idxW]);
+    var qty       = ParseInt(f[idxQty]);
+
+    // Нужны все четыре числа — иначе это шапка/итог/строка без размеров
+    if (isNaN(thickness) || isNaN(length) || isNaN(width) || isNaN(qty)) {
+        if (length !== undefined && ('' + (f[idxLen] || '')).trim() !== '') skipped.push(recNo);
+        continue;
+    }
+    if (thickness <= 0 || length <= 0 || width <= 0 || qty <= 0) {
+        skipped.push(recNo);
+        continue;
+    }
+
+    // Толщина берётся из столбца «Основа»: допускаются типовые значения
+    var okBase = false;
+    for (var a = 0; a < AllowedBase.length; ++a) {
+        if (Math.abs(AllowedBase[a] - thickness) < 0.01) { okBase = true; thickness = AllowedBase[a]; break; }
+    }
+    if (!okBase) {
+        skipped.push(recNo);
+        continue;
+    }
+
+    items.push({
+        thickness: thickness,
+        length: Math.round(length * 100) / 100,
+        width: Math.round(width * 100) / 100,
+        qty: qty,
+        sides: ParseInt(f[7]),
+        note: ('' + (f[0] || '')).trim(),
+        no: recNo
+    });
+}
+
+if (items.length == 0) {
+    alert('В файле не найдено ни одной корректной позиции.\n' +
+          'Проверьте, что это бланк заказа в формате .txt и в столбцах\n' +
+          '«Основа», «Длина», «Ширина», «Количество штук» стоят числа.');
+    throw '';
+}
+
+// ---- Предпросмотр ------------------------------------------------------------------
+var preview = '';
+var totalCount = 0;
+for (var p = 0; p < items.length; ++p) {
+    totalCount += items[p].qty;
+    preview += '#' + items[p].no + ':  ' + items[p].length + ' x ' + items[p].width +
+               ' x ' + items[p].thickness + ' мм  — ' + items[p].qty + ' шт';
+    if (items[p].note) preview += '   [' + items[p].note + ']';
+    preview += '\n';
+}
+preview += '\nИтого панелей: ' + totalCount;
+if (skipped.length) preview += '\nПропущено записей (без полных данных): ' + skipped.join(', ');
+if (!confirm('Создать панели по списку (толщина = основа)?\n\n' + preview)) {
+    alert('Скрипт остановлен пользователем.');
+    throw '';
+}
+
+// ---- Создание панелей (донор кода: "Панель по 3 точкам.js") ------------------------
+var origin = new Vector(0, 0, 0);
+var xAxis = new Vector(1, 0, 0);
+var zAxis = new Vector(0, 0, 1);
+
+var cursorX = 0;   // текущая позиция по длине (ось X)
+var rowZ = 0;      // текущий ряд по ширине (ось Z)
+var rowMaxW = 0;   // максимальная ширина в текущем ряду
+var inRow = 0;     // счётчик панелей в ряду
+var created = 0;
+
+for (var i = 0; i < items.length; ++i) {
+    var it = items[i];
+    for (var q = 0; q < it.qty; ++q) {
+        // Горизонтальная панель: rectangle (x1,z1)-(x2,z2) на высоте y=0
+        var panel = AddHorizPanel(cursorX, rowZ, cursorX + it.length, rowZ + it.width, 0);
+
+        // Ориентация: плоскость панели — XZ, нормаль — вверх (как в "Панель по 3 точкам.js")
+        panel.Orient(zAxis, xAxis);
+        panel.Position = origin;
+
+        // Прямой прямоугольный контур Length x Width
+        panel.Contour.Clear();
+        panel.Contour.AddLine(0, 0, it.length, 0);
+        panel.Contour.AddLine(it.length, 0, it.length, it.width);
+        panel.Contour.AddLine(it.length, it.width, 0, it.width);
+        panel.Contour.AddLine(0, it.width, 0, 0);
+
+        // Толщина из столбца «Основа» (8, 12, 16, 18, 22 мм)
+        panel.Thickness = it.thickness;
+        panel.Name = PanelName;
+        panel.Build();
+
+        created++;
+
+        // Продвигаемся вдоль ряда
+        cursorX += it.length + Gap;
+        rowMaxW = Math.max(rowMaxW, it.width);
+        inRow++;
+        if (inRow >= MaxPerRow) {
+            cursorX = 0;
+            rowZ += rowMaxW + Gap;
+            rowMaxW = 0;
+            inRow = 0;
+        }
+    }
+}
+
+Action.Commit();
+alert('Готово! Создано панелей: ' + created + ' из ' + items.length + ' позиций списка.');
